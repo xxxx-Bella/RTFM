@@ -16,11 +16,17 @@ class Dataset(data.Dataset):
                 self.rgb_list_file = 'list/shanghai-i3d-test-10crop.list'
             else:
                 self.rgb_list_file = 'list/shanghai-i3d-train-10crop.list'
-        else:
+        elif self.dataset == 'ucf':
             if test_mode:
                 self.rgb_list_file = 'list/ucf-i3d-test.list'
             else:
                 self.rgb_list_file = 'list/ucf-i3d.list'
+        elif self.dataset == 'drone_anomaly':
+            if test_mode:
+                self.rgb_list_file = 'list/DA-i3d-test.list'
+            else:
+                self.rgb_list_file = 'list/DA-i3d-train.list'
+        
 
         self.tranform = transform
         self.test_mode = test_mode
@@ -31,7 +37,9 @@ class Dataset(data.Dataset):
 
     def _parse_list(self):
         self.list = list(open(self.rgb_list_file))
-        if self.test_mode is False:
+        
+        if self.test_mode is False: # train 
+
             if self.dataset == 'shanghai':
                 if self.is_normal:
                     self.list = self.list[63:]
@@ -50,6 +58,19 @@ class Dataset(data.Dataset):
                 else:
                     self.list = self.list[:810]
                     print('abnormal list for ucf')
+                    print(self.list)
+            
+            elif self.dataset == 'drone_anomaly':
+                index_n = [i for i, item in enumerate(self.list) if 'label_0' in item]
+                index_a = [i for i, item in enumerate(self.list) if 'label_1' in item]
+                if self.is_normal:
+                    breakpoint()
+                    self.list = [self.list[i] for i in index_n]
+                    print('normal list for drone_anomaly')
+                    print(self.list)
+                else:
+                    self.list = [self.list[i] for i in index_a]
+                    print('abnormal list for drone_anomaly')
                     print(self.list)
 
     def __getitem__(self, index):

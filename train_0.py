@@ -51,7 +51,7 @@ class RTFM_loss(torch.nn.Module):
     def __init__(self, alpha, margin):
         super(RTFM_loss, self).__init__()
         self.alpha = alpha
-        self.margin = margin  # m 
+        self.margin = margin
         self.sigmoid = torch.nn.Sigmoid()
         self.mae_criterion = SigmoidMAELoss()
         self.criterion = torch.nn.BCELoss()
@@ -79,7 +79,7 @@ class RTFM_loss(torch.nn.Module):
         return loss_total
 
 
-def train(nloader, aloader, model, batch_size, optimizer, wandb, device):
+def train(nloader, aloader, model, batch_size, optimizer, viz, device):
     with torch.set_grad_enabled(True):
         model.train()
 
@@ -103,12 +103,10 @@ def train(nloader, aloader, model, batch_size, optimizer, wandb, device):
         loss_sparse = sparsity(abn_scores, batch_size, 8e-3)
         loss_smooth = smooth(abn_scores, 8e-4)
         cost = loss_criterion(score_normal, score_abnormal, nlabel, alabel, feat_select_normal, feat_select_abn) + loss_smooth + loss_sparse
-        wandb.log({"cost": cost})
 
-        wandb.plot_lines('loss', cost.item())
-        wandb.plot_lines('smooth loss', loss_smooth.item())
-        wandb.plot_lines('sparsity loss', loss_sparse.item())
-        
+        viz.plot_lines('loss', cost.item())
+        viz.plot_lines('smooth loss', loss_smooth.item())
+        viz.plot_lines('sparsity loss', loss_sparse.item())
         optimizer.zero_grad()
         cost.backward()
         optimizer.step()

@@ -44,10 +44,25 @@ The following files need to be adapted in order to run the code on your own mach
 - Feel free to change the hyperparameters in `option.py`
 ### Train and test the RTFM
 After the setup, simply run the following commands: 
+
 ```shell
+cd /home/featurize/work/yuxin/WVAD/RTFM
+# conda info --envs
+conda create -n "rftm" python=3.9 && conda activate rftm
+pip install visdom
+# git clone https://github.com/facebookresearch/visdom.git
+# cd visdom
+npm install --no-optional
+npm run build
+
+pip install torch matplotlib scikit-learn tqdm 
+
 python -m visdom.server
 python main.py
 ```
+
+## Next
+make_gt_da ?
 
 
 ## Citation

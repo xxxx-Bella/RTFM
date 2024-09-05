@@ -10,22 +10,15 @@ import option
 from tqdm import tqdm
 from utils import Visualizer
 from config import *
-import wandb
 
-# # 实时可视化训练过程, env 指定 Visdom 的环境名称
-# viz = Visualizer(env='shanghai tech 10 crop', use_incoming_socket=False)
+
+# 实时可视化训练过程, env 指定 Visdom 的环境名称
+viz = Visualizer(env='shanghai tech 10 crop', use_incoming_socket=False)
+
 
 if __name__ == '__main__':
     args = option.parser.parse_args()
     config = Config(args)
-
-    # wandb.init(project="shanghai_tech_10_crop", config=args, name="training")
-    wandb.init(project="drone_anomaly", config=args, name="training")
-    wandb.config.update({
-        "batch_size": args.batch_size,
-        "lr": config.lr[0],
-        "max_epoch": args.max_epoch
-    }, allow_val_change=True)
 
     # data loader
     train_nloader = DataLoader(Dataset(args, test_mode=False, is_normal=True),
@@ -56,9 +49,7 @@ if __name__ == '__main__':
     test_info = {"epoch": [], "test_AUC": []}
     best_AUC = -1
     output_path = ''   # put your own path here
-    auc = test(test_loader, model, args, wandb, device)
-    # wandb.log({"epoch": step, "test_AUC": auc})
-
+    auc = test(test_loader, model, args, viz, device)
 
     # train iter
     for step in tqdm(
@@ -77,23 +68,19 @@ if __name__ == '__main__':
         if (step - 1) % len(train_aloader) == 0:
             loadera_iter = iter(train_aloader)
 
-        train(loadern_iter, loadera_iter, model, args.batch_size, optimizer, wandb, device)
+        train(loadern_iter, loadera_iter, model, args.batch_size, optimizer, viz, device)
 
         # 每 5 个epoch进行一次测试，并保存表现最好的模型
         if step % 5 == 0 and step > 200:
 
-            auc = test(test_loader, model, args, wandb, device)
+            auc = test(test_loader, model, args, viz, device)
             test_info["epoch"].append(step)
             test_info["test_AUC"].append(auc)
-
-            wandb.log({"epoch": step, "test_AUC": auc})
 
             if test_info["test_AUC"][-1] > best_AUC:
                 best_AUC = test_info["test_AUC"][-1]
                 torch.save(model.state_dict(), './ckpt/' + args.model_name + '{}-i3d.pkl'.format(step))
                 save_best_record(test_info, os.path.join(output_path, '{}-step-AUC.txt'.format(step)))
-                wandb.save('./ckpt/' + args.model_name + '{}-i3d.pkl'.format(step)) 
 
     torch.save(model.state_dict(), './ckpt/' + args.model_name + 'final.pkl')
-    wandb.save('./ckpt/' + args.model_name + + 'final.pkl') # 
 

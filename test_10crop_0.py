@@ -2,10 +2,9 @@ import matplotlib.pyplot as plt
 import torch
 from sklearn.metrics import auc, roc_curve, precision_recall_curve
 import numpy as np
-import wandb 
 
-# wandb
-def test(dataloader, model, args, wandb, device):
+# viz
+def test(dataloader, model, args, viz, device):
     with torch.no_grad():
         model.eval()
         pred = torch.zeros(0, device=device)
@@ -22,10 +21,8 @@ def test(dataloader, model, args, wandb, device):
 
         if args.dataset == 'shanghai':
             gt = np.load('list/gt-sh.npy')
-        elif args.dataset == 'ucf':
+        else:
             gt = np.load('list/gt-ucf.npy')
-        elif args.dataset == 'drone_anomaly':
-            gt = np.load('list/gt-da.npy')
 
         pred = list(pred.cpu().detach().numpy())
         pred = np.repeat(np.array(pred), 16)
@@ -40,9 +37,8 @@ def test(dataloader, model, args, wandb, device):
         pr_auc = auc(recall, precision)
         np.save('precision.npy', precision)
         np.save('recall.npy', recall)
-
-        wandb.plot_lines('pr_auc', pr_auc)
-        wandb.plot_lines('auc', rec_auc)
-        wandb.lines('scores', pred)
-        wandb.lines('roc', tpr, fpr)
+        viz.plot_lines('pr_auc', pr_auc)
+        viz.plot_lines('auc', rec_auc)
+        viz.lines('scores', pred)
+        viz.lines('roc', tpr, fpr)
         return rec_auc

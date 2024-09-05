@@ -2,9 +2,10 @@ import visdom
 import numpy as np
 import torch
 
+# visdom
 class Visualizer(object):
     def __init__(self, env='default', **kwargs):
-        self.vis = visdom.Visdom(env=env, **kwargs)
+        wandb.init(project=env, **kwargs)
         self.index = {}
 
     def plot_lines(self, name, y, **kwargs):
@@ -12,22 +13,31 @@ class Visualizer(object):
         self.plot('loss', 1.00)
         '''
         x = self.index.get(name, 0)
-        self.vis.line(Y=np.array([y]), X=np.array([x]),
-                      win=str(name),
-                      opts=dict(title=name),
-                      update=None if x == 0 else 'append',
-                      **kwargs
-                      )
+        # self.vis.line(Y=np.array([y]), X=np.array([x]),
+        #               win=str(name),
+        #               opts=dict(title=name),
+        #               update=None if x == 0 else 'append',
+        #               **kwargs
+        #               )
+        wandb.log({name: y})
         self.index[name] = x + 1
+    
     def disp_image(self, name, img):
-        self.vis.image(img=img, win=name, opts=dict(title=name))
+        # self.vis.image(img=img, win=name, opts=dict(title=name))
+        wandb.log({name: wandb.Image(img)})
+    
     def lines(self, name, line, X=None):
         if X is None:
-            self.vis.line(Y=line, win=name)
+            # self.vis.line(Y=line, win=name)
+            wandb.log({name: line})
         else:
-            self.vis.line(X=X, Y=line, win=name)
+            # self.vis.line(X=X, Y=line, win=name)
+            wandb.log({name: wandb.plot.line_series(xs=X, ys=[line], keys=[name])})
+
     def scatter(self, name, data):
-        self.vis.scatter(X=data, win=name)
+        # self.vis.scatter(X=data, win=name)
+        wandb.log({name: wandb.plot.scatter(data)})
+
 
 def process_feat(feat, length):
     new_feat = np.zeros((length, feat.shape[1])).astype(np.float32)
