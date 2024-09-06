@@ -20,29 +20,42 @@ if __name__ == '__main__':
     config = Config(args)
 
     # wandb.init(project="shanghai_tech_10_crop", config=args, name="training")
-    wandb.init(project="drone_anomaly", config=args, name="training")
+    wandb.init(
+            project="drone_anomaly", 
+            config=args, 
+            job_type="train")
     wandb.config.update({
-        "batch_size": args.batch_size,
-        "lr": config.lr[0],
-        "max_epoch": args.max_epoch
-    }, allow_val_change=True)
+            "batch_size": args.batch_size,
+            "lr": config.lr[0],
+            "max_epoch": args.max_epoch
+        }, allow_val_change=True)
 
     # data loader
-    train_nloader = DataLoader(Dataset(args, test_mode=False, is_normal=True),
+    train_nset = Dataset(args, test_mode=False, is_normal=True)
+    train_aset = Dataset(args, test_mode=False, is_normal=False)
+    print(f'train_Nset: {len(train_nset)}')
+    print(f'train_Aset: {len(train_aset)}')
+
+    train_nloader = DataLoader(train_nset,
                                batch_size=args.batch_size, shuffle=True,
                                num_workers=0, pin_memory=False, drop_last=True)
-    train_aloader = DataLoader(Dataset(args, test_mode=False, is_normal=False),
+    train_aloader = DataLoader(train_aset,
                                batch_size=args.batch_size, shuffle=True,
                                num_workers=0, pin_memory=False, drop_last=True)
     test_loader = DataLoader(Dataset(args, test_mode=True),
                               batch_size=1, shuffle=False,
                               num_workers=0, pin_memory=False)
 
+    print(f'train_Nloader: {len(train_nloader)}')
+    print(f'train_Aloader: {len(train_aloader)}')
+    print(f'test_loader: {len(test_loader)}')
+    breakpoint()
+
     # model define and optimizer
     model = Model(args.feature_size, args.batch_size)
 
-    for name, value in model.named_parameters():
-        print(name)
+    # for name, value in model.named_parameters():
+    #     print(name)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
 
@@ -79,7 +92,7 @@ if __name__ == '__main__':
 
         train(loadern_iter, loadera_iter, model, args.batch_size, optimizer, wandb, device)
 
-        # 每 5 个epoch进行一次测试，并保存表现最好的模型
+        # 每 5 个 epoch 进行一次测试，并保存表现最好的模型
         if step % 5 == 0 and step > 200:
 
             auc = test(test_loader, model, args, wandb, device)

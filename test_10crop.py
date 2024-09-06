@@ -28,9 +28,17 @@ def test(dataloader, model, args, wandb, device):
             gt = np.load('list/gt-da.npy')
 
         pred = list(pred.cpu().detach().numpy())
-        pred = np.repeat(np.array(pred), 16)
+        pred = np.repeat(np.array(pred), args.fps)
+        
+        print(f"Length of gt: {len(gt)}")
+        print(f"Length of pred: {len(pred)}")
 
-        fpr, tpr, threshold = roc_curve(list(gt), pred)
+        if len(gt) != len(pred):
+            print(f"Error: gt and pred have different lengths: {len(gt)} vs {len(pred)}")
+            breakpoint()
+        else:
+            fpr, tpr, threshold = roc_curve(list(gt), pred)
+
         np.save('fpr.npy', fpr)
         np.save('tpr.npy', tpr)
         rec_auc = auc(fpr, tpr)
@@ -41,8 +49,21 @@ def test(dataloader, model, args, wandb, device):
         np.save('precision.npy', precision)
         np.save('recall.npy', recall)
 
-        wandb.plot_lines('pr_auc', pr_auc)
-        wandb.plot_lines('auc', rec_auc)
-        wandb.lines('scores', pred)
-        wandb.lines('roc', tpr, fpr)
+        # vis.plot_lines('pr_auc', pr_auc)
+        # vis.plot_lines('auc', rec_auc)
+        # vis.lines('scores', pred)
+        # vis.lines('roc', tpr, fpr)
+        wandb.log({
+            "pr_auc": pr_auc,
+            "auc": rec_auc,
+            "scores": pred,
+            'roc': wandb.plot.line_series(
+                xs=fpr,  
+                ys=[tpr], 
+                keys=["tpr"], 
+                title="ROC Curve", 
+                xname="FPR" 
+            )})
+
+ 
         return rec_auc

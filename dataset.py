@@ -30,15 +30,15 @@ class Dataset(data.Dataset):
 
         self.tranform = transform
         self.test_mode = test_mode
-        self._parse_list()
+        self._parse_list() # get train self.list
         self.num_frame = 0
         self.labels = None
 
 
     def _parse_list(self):
         self.list = list(open(self.rgb_list_file))
-        
-        if self.test_mode is False: # train 
+        # train 
+        if self.test_mode is False: 
 
             if self.dataset == 'shanghai':
                 if self.is_normal:
@@ -61,16 +61,17 @@ class Dataset(data.Dataset):
                     print(self.list)
             
             elif self.dataset == 'drone_anomaly':
+                print("Loading training dateset...")
                 index_n = [i for i, item in enumerate(self.list) if 'label_0' in item]
                 index_a = [i for i, item in enumerate(self.list) if 'label_1' in item]
                 if self.is_normal:
-                    breakpoint()
+                    # breakpoint()
                     self.list = [self.list[i] for i in index_n]
-                    print('normal list for drone_anomaly')
+                    print('\nnormal list for drone_anomaly:', len(self.list))
                     print(self.list)
                 else:
                     self.list = [self.list[i] for i in index_a]
-                    print('abnormal list for drone_anomaly')
+                    print('\nabnormal list for drone_anomaly:', len(self.list))
                     print(self.list)
 
     def __getitem__(self, index):
@@ -88,7 +89,7 @@ class Dataset(data.Dataset):
             features = features.transpose(1, 0, 2)  # [10, B, T, F]
             divided_features = []
             for feature in features:
-                feature = process_feat(feature, 32)  # divide a video into 32 segments
+                feature = process_feat(feature, 32)  # divide a video into 32 segments (T=32)
                 divided_features.append(feature)
             divided_features = np.array(divided_features, dtype=np.float32)
 

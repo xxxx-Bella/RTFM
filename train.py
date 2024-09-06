@@ -105,9 +105,17 @@ def train(nloader, aloader, model, batch_size, optimizer, wandb, device):
         cost = loss_criterion(score_normal, score_abnormal, nlabel, alabel, feat_select_normal, feat_select_abn) + loss_smooth + loss_sparse
         wandb.log({"cost": cost})
 
-        wandb.plot_lines('loss', cost.item())
-        wandb.plot_lines('smooth loss', loss_smooth.item())
-        wandb.plot_lines('sparsity loss', loss_sparse.item())
+        # vis.plot_lines('loss', cost.item())
+        # vis.plot_lines('smooth loss', loss_smooth.item())
+        # vis.plot_lines('sparsity loss', loss_sparse.item())
+        wandb.log({
+            "loss": cost.item(),
+            "smooth loss": loss_smooth.item(),
+            "sparsity loss": loss_sparse.item()
+        })
+
+
+
         
         optimizer.zero_grad()
         cost.backward()

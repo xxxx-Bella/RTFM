@@ -70,6 +70,7 @@ python main.py
 
 ## Next
 python list/make_gt_da.py (done)
+verify_frame_and_label_count() # /home/featurize/work/yuxin/data/split_video.py
 
 
 ## Citation

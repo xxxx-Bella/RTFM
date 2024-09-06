@@ -49,7 +49,7 @@ for  file in file_list:
     # else:
     #     print(f"Skipping squeeze as axis 1 has size {features.shape[1]}")
 
-    num_frame = features.shape[0] * 30  # 计算该视频的帧数 (视频的片段数量 * 每个片段包含30帧)
+    num_frame = features.shape[0] * args.fps  # 计算该视频的帧数 (视频的片段数量 * 每个片段包含30帧)
     count = 0
 
     # normal video: gt is (0*num_frame)
