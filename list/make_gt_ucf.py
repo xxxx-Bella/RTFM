@@ -8,8 +8,8 @@ from os import walk
 '''
 FOR UCF CRIME
 '''
-root_path = "/home/yu/yu_ssd/i3d_features_test/"
-dirs = os.listdir(root_path)
+# root_path = "/home/yu/yu_ssd/i3d_features_test/"
+# dirs = os.listdir(root_path)
 rgb_list_file ='ucf-i3d-test.list'
 temporal_root = '/home/yu/PycharmProjects/DeepMIL-master/list/Matlab_formate/'
 mat_name_list = os.listdir(temporal_root)
@@ -35,7 +35,7 @@ for file in file_list:
             gt.append(0.0)
             count+=1
 
-    else: #if it's abnormal # get the name from temporal file
+    else: # if it's abnormal # get the name from temporal file
         if mat_file in mat_name_list:
             second_event = False
             annots = loadmat(os.path.join(temporal_root, mat_file))

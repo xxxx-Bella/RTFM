@@ -46,23 +46,30 @@ The following files need to be adapted in order to run the code on your own mach
 After the setup, simply run the following commands: 
 
 ```shell
-cd /home/featurize/work/yuxin/WVAD/RTFM
+cd /home/featurize/work/yuxin/WVAD/RTFM && conda create -n "rftm" python=3.9 && conda activate rftm && pip install torch matplotlib scikit-learn tqdm wandb
 # conda info --envs
-conda create -n "rftm" python=3.9 && conda activate rftm
-pip install visdom
+
+# pip install visdom
 # git clone https://github.com/facebookresearch/visdom.git
 # cd visdom
-npm install --no-optional
-npm run build
+# npm install --no-optional
+# npm run build
 
-pip install torch matplotlib scikit-learn tqdm 
+# pip install torch matplotlib scikit-learn tqdm 
 
-python -m visdom.server
+# python -m visdom.server
 python main.py
+
+93d9cb47ca8e71ecdf675438033ea06ebc9cfd9c
 ```
+# Git Commit/Push
+    git config --global user.email "hyx18390659623@163.com" && git config --global user.name "xxxx-Bella"
+    # sudo chmod 777 /home/featurize/work/MyPaper/
+    git commit -m ""
+    git push origin main
 
 ## Next
-make_gt_da ?
+python list/make_gt_da.py (done)
 
 
 ## Citation

@@ -4,10 +4,10 @@ import glob
 
 
 '''
-FOR UCF CRIME
+FOR Shanghai Tech
 '''
 root_path = "/home/yu/yu_ssd/SH_Test_ten_crop_i3d/"
-dirs = os.listdir(root_path)
+# dirs = os.listdir(root_path)
 
 def get_check_abnormal_list(root_path):
     abnormal_path = 'test_frame_mask/'
