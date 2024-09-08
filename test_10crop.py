@@ -6,8 +6,9 @@ import wandb
 
 # wandb
 def test(dataloader, model, args, wandb, device):
-    with torch.no_grad():
+    with torch.no_grad():  # 评估模式，不进行反向传播
         model.eval()
+        # 处理输入数据，得到预测的 logits
         pred = torch.zeros(0, device=device)
 
         for i, input in enumerate(dataloader):
@@ -20,6 +21,7 @@ def test(dataloader, model, args, wandb, device):
             sig = logits
             pred = torch.cat((pred, sig))
 
+        # 加载 ground truth 标签文件
         if args.dataset == 'shanghai':
             gt = np.load('list/gt-sh.npy')
         elif args.dataset == 'ucf':
@@ -27,11 +29,12 @@ def test(dataloader, model, args, wandb, device):
         elif args.dataset == 'drone_anomaly':
             gt = np.load('list/gt-da.npy')
 
+        # 将 pred 中的每个值重复 16 次
         pred = list(pred.cpu().detach().numpy())
-        pred = np.repeat(np.array(pred), args.fps)
+        pred = np.repeat(np.array(pred), 16)
         
-        print(f"Length of gt: {len(gt)}")
-        print(f"Length of pred: {len(pred)}")
+        # print(f"Length of gt: {len(gt)}")
+        # print(f"Length of pred: {len(pred)}")
 
         if len(gt) != len(pred):
             print(f"Error: gt and pred have different lengths: {len(gt)} vs {len(pred)}")
@@ -65,5 +68,4 @@ def test(dataloader, model, args, wandb, device):
                 xname="FPR" 
             )})
 
- 
         return rec_auc

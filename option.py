@@ -11,7 +11,7 @@ parser.add_argument('--test-rgb-list', default='list/DA-i3d-test-10crop.list', h
 parser.add_argument('--gt', default='list/gt-sh.npy', help='file of ground truth ')
 parser.add_argument('--gpus', default=1, type=int, choices=[0], help='gpus')
 parser.add_argument('--lr', type=str, default='[0.001]*15000', help='learning rates for steps(list form)')
-parser.add_argument('--batch-size', type=int, default=8, help='number of instances in a batch of data (default: 16)')
+parser.add_argument('--batch-size', type=int, default=4, help='number of instances in a batch of data (default: 16)')
 parser.add_argument('--workers', default=4, help='number of workers in dataloader')
 parser.add_argument('--model-name', default='rtfm', help='name to save model')
 parser.add_argument('--pretrained-ckpt', default=None, help='ckpt for pretrained model')
@@ -19,6 +19,6 @@ parser.add_argument('--num-classes', type=int, default=1, help='number of class'
 # parser.add_argument('--dataset', default='shanghai', help='dataset to train on (default: )')
 parser.add_argument('--dataset', default='drone_anomaly', help='dataset to train on (default: )')
 parser.add_argument('--plot-freq', type=int, default=10, help='frequency of plotting (default: 10)')
-parser.add_argument('--max-epoch', type=int, default=15000, help='maximum iteration to train (default: 100)')
-parser.add_argument('--fps', type=int, default=30, help='frame per second')
+parser.add_argument('--max-epoch', type=int, default=5000, help='maximum iteration to train (default: 100)')
+# parser.add_argument('--fps', type=int, default=30, help='frame per second')
 

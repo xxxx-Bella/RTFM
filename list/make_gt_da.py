@@ -35,6 +35,8 @@ num_frame = 0
 gt = []
 total = 0
 abnormal_count =0
+wrong_num = []
+wrong_num_path = f'list/wrong_num.list'
 
 # 将每个 video 的 label 合成一个 gt
 for  file in file_list:
@@ -49,19 +51,19 @@ for  file in file_list:
     # else:
     #     print(f"Skipping squeeze as axis 1 has size {features.shape[1]}")
 
-    num_frame = features.shape[0] * args.fps  # 计算该视频的帧数 (视频的片段数量 * 每个片段包含30帧)
+    num_frame = features.shape[0] * 16  # 计算该视频的帧数 (视频的片段数量 * i3d_frequency)
     count = 0
 
     # normal video: gt is (0*num_frame)
     if 'label_0' in file:
-        print('normal video' + str(file))
+        print('normal video:', str(file))
         for i in range(0, num_frame):
             gt.append(0)
             count += 1
     
-    # abnormal video: gt is ground_annotation (file)
+    # abnormal video: load '_gt.npy' file
     else:
-        print('abnormal video' + str(file)) # file name
+        print('ABnormal video:', str(file))  # file name
         gt_file = file.split('.npy')[0] + '_gt.npy' # xxx_label_1_gt.npy
         gt_file = gt_file.split('/')[-1]  # 将路径按照目录分割，取最后一级文件名
         # 检查 ground truth 文件是否存在
@@ -72,6 +74,7 @@ for  file in file_list:
         
         ground_annotation = np.load(os.path.join(gt_root, gt_file)) # frame-level label
         ground_annotation = list(ground_annotation)
+        
         # 如果 ground truth 数据的长度（帧数）小于视频帧数 num_frame
         if len(ground_annotation) < num_frame:
             last_frame_label = ground_annotation[-1] # 最后一个标签值
@@ -81,23 +84,26 @@ for  file in file_list:
         # 再次检查帧数是否一致
         if len(ground_annotation)!= num_frame:
             print("wrong frame number")
-            exit(1)
+            # breakpoint()
+            one = {str(file): [len(ground_annotation), num_frame]}
+            wrong_num.append(one)
+            
+            ground_annotation = ground_annotation[:num_frame]
+            # exit(1)
         
         count += len(ground_annotation)
         gt.extend(ground_annotation)
 
     total += count # 统计所有test视频的 ground truth 标签数
 
-print('\nall_gt_in_test count:', total)
-print('abnormal_video_in_test count:', abnormal_count)
+print()
+print('all gt in DA-test:', total)
+print('abnormal video in DA-test:', abnormal_count)
+with open(wrong_num_path, 'w') as f:
+    for one in wrong_num:
+        f.write(str(one) + '\n')
 
 
 gt_array = np.array(gt)
 np.save('list/gt-da.npy', gt_array)
 # # loaded_gt = np.load('gt-sh.npy')
-
-
-
-
-
-

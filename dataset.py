@@ -67,12 +67,12 @@ class Dataset(data.Dataset):
                 if self.is_normal:
                     # breakpoint()
                     self.list = [self.list[i] for i in index_n]
-                    print('\nnormal list for drone_anomaly:', len(self.list))
-                    print(self.list)
+                    print('normal list for DA:', len(self.list))
+                    # print(self.list)
                 else:
                     self.list = [self.list[i] for i in index_a]
-                    print('\nabnormal list for drone_anomaly:', len(self.list))
-                    print(self.list)
+                    print('abnormal list for DA:', len(self.list))
+                    # print(self.list)
 
     def __getitem__(self, index):
 
@@ -89,7 +89,7 @@ class Dataset(data.Dataset):
             features = features.transpose(1, 0, 2)  # [10, B, T, F]
             divided_features = []
             for feature in features:
-                feature = process_feat(feature, 32)  # divide a video into 32 segments (T=32)
+                feature = process_feat(feature, 32)   # divide a video into 32 segments (T=32)
                 divided_features.append(feature)
             divided_features = np.array(divided_features, dtype=np.float32)
 

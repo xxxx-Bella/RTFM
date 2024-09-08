@@ -33,7 +33,7 @@ This repo contains the Pytorch implementation of our paper:
 > 
 > [**UCF-Crime test I3d features on Google drive**](https://drive.google.com/drive/folders/1QCBTDUMBXYU9PonPh1TWnRtpTKOX-fxr?usp=sharing)
 > 
-> [**checkpoint for Ucf-crime**](https://uao365-my.sharepoint.com/:u:/g/personal/a1697106_adelaide_edu_au/Ed0gS0RZ5hFMqVa8LxcO3sYBqFEmzMU5IsvvLWxioTatKw?e=qHEl5Z)
+> [**checkpoint for UCF-Crime**](https://uao365-my.sharepoint.com/:u:/g/personal/a1697106_adelaide_edu_au/Ed0gS0RZ5hFMqVa8LxcO3sYBqFEmzMU5IsvvLWxioTatKw?e=qHEl5Z)
 
 The above features use the resnet50 I3D to extract from this [**repo**](https://github.com/Tushar-N/pytorch-resnet3d).
 
@@ -69,20 +69,14 @@ python main.py
     git push origin main
 
 ## Next
-python list/make_gt_da.py (done)
-verify_frame_and_label_count() # /home/featurize/work/yuxin/data/split_video.py
+* python list/make_gt_da.py (done)
 
+* verify_frame_equal_label (done)  # ./data/split_video.py
 
-## Citation
+* drone_anomaly_new (done)  # split each video (window-size=600)
 
-If you find this repo useful for your research, please consider citing our paper:
+* generate i3d of drone_anomaly_new
 
-```bibtex
-@article{tian2021weakly,
-  title={Weakly-supervised Video Anomaly Detection with Robust Temporal Feature Magnitude Learning},
-  author={Tian, Yu and Pang, Guansong and Chen, Yuanhong and Singh, Rajvinder and Verjans, Johan W and Carneiro, Gustavo},
-  journal={arXiv preprint arXiv:2101.10030},
-  year={2021}
-}
-```
+* npy in abnormal -->(copy) output/drone_anomaly_new
+
 ---

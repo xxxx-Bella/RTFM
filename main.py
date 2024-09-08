@@ -49,7 +49,7 @@ if __name__ == '__main__':
     print(f'train_Nloader: {len(train_nloader)}')
     print(f'train_Aloader: {len(train_aloader)}')
     print(f'test_loader: {len(test_loader)}')
-    breakpoint()
+    # breakpoint()
 
     # model define and optimizer
     model = Model(args.feature_size, args.batch_size)
@@ -104,7 +104,7 @@ if __name__ == '__main__':
             if test_info["test_AUC"][-1] > best_AUC:
                 best_AUC = test_info["test_AUC"][-1]
                 torch.save(model.state_dict(), './ckpt/' + args.model_name + '{}-i3d.pkl'.format(step))
-                save_best_record(test_info, os.path.join(output_path, '{}-step-AUC.txt'.format(step)))
+                save_best_record(test_info, os.path.join(output_path, 'log/{}-step-AUC.txt'.format(step)))
                 wandb.save('./ckpt/' + args.model_name + '{}-i3d.pkl'.format(step)) 
 
     torch.save(model.state_dict(), './ckpt/' + args.model_name + 'final.pkl')
