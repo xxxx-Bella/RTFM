@@ -58,7 +58,7 @@ cd /home/featurize/work/yuxin/WVAD/RTFM && conda create -n "rftm" python=3.9 && 
 # pip install torch matplotlib scikit-learn tqdm 
 
 # python -m visdom.server
-python main.py
+python main.py --run-name a
 
 93d9cb47ca8e71ecdf675438033ea06ebc9cfd9c
 ```

@@ -42,15 +42,15 @@ def test(dataloader, model, args, wandb, device):
         else:
             fpr, tpr, threshold = roc_curve(list(gt), pred)
 
-        np.save('fpr.npy', fpr)
-        np.save('tpr.npy', tpr)
+        np.save('log/fpr.npy', fpr)
+        np.save('log/tpr.npy', tpr)
         rec_auc = auc(fpr, tpr)
         print('auc : ' + str(rec_auc))
 
         precision, recall, th = precision_recall_curve(list(gt), pred)
         pr_auc = auc(recall, precision)
-        np.save('precision.npy', precision)
-        np.save('recall.npy', recall)
+        np.save('log/precision.npy', precision)
+        np.save('log/recall.npy', recall)
 
         # vis.plot_lines('pr_auc', pr_auc)
         # vis.plot_lines('auc', rec_auc)

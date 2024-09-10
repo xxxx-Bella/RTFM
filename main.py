@@ -8,12 +8,10 @@ from train import train
 from test_10crop import test
 import option
 from tqdm import tqdm
-from utils import Visualizer
+# from utils import Visualizer
 from config import *
 import wandb
 
-# # 实时可视化训练过程, env 指定 Visdom 的环境名称
-# viz = Visualizer(env='shanghai tech 10 crop', use_incoming_socket=False)
 
 if __name__ == '__main__':
     args = option.parser.parse_args()
@@ -103,10 +101,10 @@ if __name__ == '__main__':
 
             if test_info["test_AUC"][-1] > best_AUC:
                 best_AUC = test_info["test_AUC"][-1]
-                torch.save(model.state_dict(), './ckpt/' + args.model_name + '{}-i3d.pkl'.format(step))
-                save_best_record(test_info, os.path.join(output_path, 'log/{}-step-AUC.txt'.format(step)))
-                wandb.save('./ckpt/' + args.model_name + '{}-i3d.pkl'.format(step)) 
+                torch.save(model.state_dict(), './ckpt/' + args.model_name + f'{step}-i3d.pkl')
+                # save_best_record(test_info, os.path.join(output_path, f'log/{step}-step-AUC.txt'))
+                save_best_record(test_info, os.path.join(output_path, f'./log/{args.run_name}_test_auc.txt'))
+                wandb.save('./ckpt/' + args.model_name + f'{step}-i3d.pkl') 
 
     torch.save(model.state_dict(), './ckpt/' + args.model_name + 'final.pkl')
-    wandb.save('./ckpt/' + args.model_name + + 'final.pkl') # 
-
+    wandb.save('./ckpt/' + args.model_name + 'final.pkl')
