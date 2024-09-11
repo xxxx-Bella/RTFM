@@ -103,7 +103,7 @@ if __name__ == '__main__':
                 best_AUC = test_info["test_AUC"][-1]
                 torch.save(model.state_dict(), './ckpt/' + args.model_name + f'{step}-i3d.pkl')
                 # save_best_record(test_info, os.path.join(output_path, f'log/{step}-step-AUC.txt'))
-                save_best_record(test_info, os.path.join(output_path, f'./log/{args.run_name}_test_auc.txt'))
+                save_best_record(test_info, os.path.join(output_path, f'log/run-{args.run_name}/{args.run_name}_test_auc.txt'))
                 wandb.save('./ckpt/' + args.model_name + f'{step}-i3d.pkl') 
 
     torch.save(model.state_dict(), './ckpt/' + args.model_name + 'final.pkl')

@@ -90,6 +90,8 @@ def train(nloader, aloader, model, batch_size, optimizer, wandb, device):
 
         score_abnormal, score_normal, feat_select_abn, feat_select_normal, feat_abn_bottom, \
         feat_normal_bottom, scores, scores_nor_bottom, scores_nor_abn_bag, _ = model(input)  # b*32  x 2048
+        # feat_abn_bottom, feat_normal_bottom, scores_nor_bottom, scores_nor_abn_bag --> all feat_select_abn
+        # _ --> feat_magnitudes
 
         scores = scores.view(batch_size * 32 * 2, -1)
 
@@ -100,21 +102,16 @@ def train(nloader, aloader, model, batch_size, optimizer, wandb, device):
         alabel = alabel[0:batch_size]
 
         loss_criterion = RTFM_loss(0.0001, 100)
-        loss_sparse = sparsity(abn_scores, batch_size, 8e-3)
+        loss_sparse = sparsity(abn_scores, batch_size, 8e-3)  # 稀疏性损失
         loss_smooth = smooth(abn_scores, 8e-4)
         cost = loss_criterion(score_normal, score_abnormal, nlabel, alabel, feat_select_normal, feat_select_abn) + loss_smooth + loss_sparse
+        
         wandb.log({"cost": cost})
-
-        # vis.plot_lines('loss', cost.item())
-        # vis.plot_lines('smooth loss', loss_smooth.item())
-        # vis.plot_lines('sparsity loss', loss_sparse.item())
         wandb.log({
             "loss": cost.item(),
             "smooth loss": loss_smooth.item(),
             "sparsity loss": loss_sparse.item()
         })
-
-
 
         
         optimizer.zero_grad()

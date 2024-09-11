@@ -11,6 +11,11 @@ def weight_init(m):
         if m.bias is not None:
             m.bias.data.fill_(0)
 
+'''
+new: 
+非局部块的计算复杂度较高，尤其是对于长时间序列。可以考虑使用更轻量级的注意力机制，如Self-Attention或Transformer替代，减少计算量;
+如果模型的数据特征在时间或空间维度上局部相关性较强，可以尝试局部注意力机制，减少全局范围的计算负担
+'''
 class _NonLocalBlockND(nn.Module):
     '''通用的 Non-Local Block 模块，适用于 1D, 2D 或 3D 数据.
     Non-Local 模块: 捕获远距离依赖关系的机制 
@@ -124,6 +129,13 @@ class Aggregate(nn.Module):
         bn = nn.BatchNorm1d
         self.len_feature = len_feature  # 输入特征的长度（即输入的通道数，通常是 2048）
 
+        '''
+        NEW!:
+         现有模型只使用了三种膨胀率（dilation=1, 2, 4）进行卷积操作。可以进一步扩展这个多尺度卷积机制，比如引入不同大小的卷积核（如 kernel_size=1, 3, 5），或者再增加更多的膨胀率
+
+        self.conv_4 = nn.Conv1d(in_channels=2048, out_channels=512, kernel_size=5, dilation=8, padding=8)
+        通过引入更多的卷积核和膨胀率，可以捕捉到更多不同尺度的信息，提升模型的特征表达能力
+        '''
         # 使用了不同膨胀率 (dilation) 的卷积核 来捕获不同范围的上下文信息
         self.conv_1 = nn.Sequential(
             nn.Conv1d(in_channels=len_feature, out_channels=512, kernel_size=3, 
@@ -176,7 +188,14 @@ class Aggregate(nn.Module):
             out1 = self.conv_1(out)
             out2 = self.conv_2(out)
             out3 = self.conv_3(out)
-            out_d = torch.cat((out1, out2, out3), dim = 1)
+            out_d = torch.cat((out1, out2, out3), dim = 1)  
+            '''
+            new: 
+            当前多尺度卷积的结果通过 torch.cat 拼接在一起。可以进一步改进为 权重融合，即使用可学习的权重对不同尺度的特征进行加权求和，增强模型的自适应性。
+            self.weights = nn.Parameter(torch.ones(3))
+            out = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3
+            这样网络可以动态调整不同尺度特征的重要性，从而提高模型的灵活性
+            '''
 
             # 1x1卷积和Non-Local操作
             out = self.conv_4(out)  # 使用 1x1 卷积对特征进行进一步压缩
@@ -185,6 +204,24 @@ class Aggregate(nn.Module):
             out = torch.cat((out_d, out), dim=1)
             out = self.conv_5(out)   # fuse all the features together
 
+            '''new: 
+            当前模型使用了简单的残差连接，可以进一步优化残差连接的结构，例如使用 Bottleneck 残差块来减少参数量，同时提高特征表达能力。
+            class Bottleneck(nn.Module):
+                def __init__(self, in_channels, out_channels):
+                    super(Bottleneck, self).__init__()
+                    self.conv1 = nn.Conv1d(in_channels, out_channels//4, kernel_size=1)
+                    self.conv2 = nn.Conv1d(out_channels//4, out_channels//4, kernel_size=3, padding=1)
+                    self.conv3 = nn.Conv1d(out_channels//4, out_channels, kernel_size=1)
+                    self.relu = nn.ReLU()
+                    
+                def forward(self, x):
+                    residual = x
+                    out = self.conv1(x)
+                    out = self.conv2(out)
+                    out = self.conv3(out)
+                    return self.relu(out + residual)
+            Bottleneck 可以有效减少计算量，同时保持残差网络的优势
+            '''
             # 残差连接：输出与输入相加，形成残差连接，保留原始特征的部分信息
             out = out + residual
             out = out.permute(0, 2, 1)  
