@@ -39,6 +39,7 @@ class Dataset(data.Dataset):
         self.list = list(open(self.rgb_list_file))
         # train 
         if self.test_mode is False: 
+            print("Loading training dateset...")
 
             if self.dataset == 'shanghai':
                 if self.is_normal:
@@ -61,7 +62,6 @@ class Dataset(data.Dataset):
                     print(self.list)
             
             elif self.dataset == 'drone_anomaly':
-                print("Loading training dateset...")
                 index_n = [i for i, item in enumerate(self.list) if 'label_0' in item]
                 index_a = [i for i, item in enumerate(self.list) if 'label_1' in item]
                 if self.is_normal:
@@ -77,7 +77,7 @@ class Dataset(data.Dataset):
     def __getitem__(self, index):
 
         label = self.get_label()  # get video level label 0/1
-        features = np.load(self.list[index].strip('\n'), allow_pickle=True)
+        features = np.load(self.list[index].strip('\n'), allow_pickle=True) # each video
         features = np.array(features, dtype=np.float32)
 
         if self.tranform is not None:

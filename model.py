@@ -217,9 +217,9 @@ class Model(nn.Module):
         k_nor = self.k_nor
 
         out = inputs  
-        bs, ncrops, t, f = out.size() # batch_size, num_crops, time, features
+        bs, ncrops, t, f = out.size() # bs, num_crops(10), num_frame, features_dim
 
-        out = out.view(-1, t, f)  # (batch_size*num_crops, time, features)
+        out = out.view(-1, t, f)  # (bs*num_crops, time, features)
         out = self.Aggregate(out)  # 聚合特征，输出大小保持不变
         out = self.drop_out(out)
 

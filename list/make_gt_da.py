@@ -6,14 +6,13 @@ from os import walk
 
 '''
 For Drone Anomaly. 
-为 Drone Anomaly 数据集生成 ground truth (GT) 标签. 
+为 Drone Anomaly 数据测试集生成 ground truth (GT) 标签. 
 根据视频的文件名将视频分为“正常”和“异常”类别，分别为每个视频的每一帧生成标签.
 正常视频的标签全为 0, 异常视频的标签根据 ground truth 文件生成.
 '''
 
 rgb_list_file ='list/DA-i3d-test.list'
 file_list = [file.strip() for file in open(rgb_list_file)]  # 每一行是一个 I3D 特征文件的路径, 去除换行符
-
 # gt（frame-level label）root path (for load abnormal gt)
 gt_root = '/home/featurize/work/yuxin/WVAD/I3D/output/drone_anomaly/'  
 
@@ -52,6 +51,7 @@ for  file in file_list:
     #     print(f"Skipping squeeze as axis 1 has size {features.shape[1]}")
 
     num_frame = features.shape[0] * 16  # 计算该视频的帧数 (视频的片段数量 * i3d_frequency)
+    print(f'num_frame:{num_frame}')
     count = 0
 
     # normal video: gt is (0*num_frame)
@@ -83,7 +83,7 @@ for  file in file_list:
 
         # 再次检查帧数是否一致
         if len(ground_annotation)!= num_frame:
-            print("wrong frame number")
+            # print("wrong frame number")
             # breakpoint()
             one = {str(file): [len(ground_annotation), num_frame]}
             wrong_num.append(one)
@@ -105,5 +105,5 @@ with open(wrong_num_path, 'w') as f:
 
 
 gt_array = np.array(gt)
-np.save('list/gt-da.npy', gt_array)
+np.save('list/gt-da.npy', gt_array)  # test frame-level label
 # # loaded_gt = np.load('gt-sh.npy')
