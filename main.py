@@ -59,6 +59,11 @@ if __name__ == '__main__':
 
     if not os.path.exists('./ckpt'):
         os.makedirs('./ckpt')
+    
+    log_dir = f'./log/run-{args.run_name}'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
 
     optimizer = optim.Adam(model.parameters(),
                             lr=config.lr[0], weight_decay=0.005)
@@ -102,8 +107,7 @@ if __name__ == '__main__':
             if test_info["test_AUC"][-1] > best_AUC:
                 best_AUC = test_info["test_AUC"][-1]
                 torch.save(model.state_dict(), './ckpt/' + args.model_name + f'{step}-i3d.pkl')
-                # save_best_record(test_info, os.path.join(output_path, f'log/{step}-step-AUC.txt'))
-                save_best_record(test_info, os.path.join(output_path, f'log/run-{args.run_name}/{args.run_name}_test_auc.txt'))
+                save_best_record(test_info, os.path.join(output_path, log_dir, f'{args.run_name}_test_auc.txt'))
                 wandb.save('./ckpt/' + args.model_name + f'{step}-i3d.pkl') 
 
     torch.save(model.state_dict(), './ckpt/' + args.model_name + 'final.pkl')

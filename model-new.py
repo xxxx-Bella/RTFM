@@ -122,7 +122,7 @@ class NONLocalBlock1D(_NonLocalBlockND):
 
 class Aggregate(nn.Module):
     '''特征聚合模块，用于处理输入的特征. 包含多个卷积层和 Non-Local Block.
-    目的是在时间维度上 聚合特征 并捕获远程依赖关系
+    目的是在 时间维度上 聚合特征 并捕捉时间依赖关系
     '''
     def __init__(self, len_feature):
         super(Aggregate, self).__init__()
@@ -130,7 +130,7 @@ class Aggregate(nn.Module):
         self.len_feature = len_feature  # 输入特征的长度（即输入的通道数，通常是 2048）
 
         '''
-        NEW!:
+        new-b:
          现有模型只使用了三种膨胀率（dilation=1, 2, 4）进行卷积操作。可以进一步扩展这个多尺度卷积机制，比如引入不同大小的卷积核（如 kernel_size=1, 3, 5），或者再增加更多的膨胀率
 
         self.conv_4 = nn.Conv1d(in_channels=2048, out_channels=512, kernel_size=5, dilation=8, padding=8)
@@ -158,6 +158,8 @@ class Aggregate(nn.Module):
             bn(512)
             # nn.dropout(0.7),
         )
+        # new-b: 引入更多的卷积核和膨胀率
+        self.conv_3_2 = nn.Conv1d(in_channels=len_feature, out_channels=512, kernel_size=5, dilation=8, padding=8)
 
         # 使用 1x1 卷积对特征进行进一步压缩
         self.conv_4 = nn.Sequential(
@@ -177,6 +179,9 @@ class Aggregate(nn.Module):
         )
 
         self.non_local = NONLocalBlock1D(512, sub_sample=False, bn_layer=True)
+        
+        # new-a: 权重融合，即使用可学习的权重对不同尺度的特征进行加权求和，增强模型的自适应性
+        self.weights = nn.Parameter(torch.ones(3))
 
 
     def forward(self, x):
@@ -188,9 +193,16 @@ class Aggregate(nn.Module):
             out1 = self.conv_1(out)
             out2 = self.conv_2(out)
             out3 = self.conv_3(out)
-            out_d = torch.cat((out1, out2, out3), dim = 1)  
+            out_d = torch.cat((out1, out2, out3), dim = 1)  # origin
+
+            # # new-b: 引入更多的卷积核和膨胀率
+            # out3_2 = self.conv_3_2(out) 
+            # out_d = torch.cat((out1, out2, out3, out3_2), dim = 1) 
+            
+            # new-a: 权重融合
+            # out_d = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3 
             '''
-            new: 
+            new-a: 
             当前多尺度卷积的结果通过 torch.cat 拼接在一起。可以进一步改进为 权重融合，即使用可学习的权重对不同尺度的特征进行加权求和，增强模型的自适应性。
             self.weights = nn.Parameter(torch.ones(3))
             out = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3
@@ -204,7 +216,7 @@ class Aggregate(nn.Module):
             out = torch.cat((out_d, out), dim=1)
             out = self.conv_5(out)   # fuse all the features together
 
-            '''new: 
+            '''new-c: 
             当前模型使用了简单的残差连接，可以进一步优化残差连接的结构，例如使用 Bottleneck 残差块来减少参数量，同时提高特征表达能力。
             class Bottleneck(nn.Module):
                 def __init__(self, in_channels, out_channels):
@@ -260,12 +272,13 @@ class Model(nn.Module):
         out = self.Aggregate(out)  # 聚合特征，输出大小保持不变
         out = self.drop_out(out)
 
-        features = out
+        features = out  # (batch_size * num_crops, time, feature_dim)
         scores = self.relu(self.fc1(features))  # 通过全连接层1和ReLU激活
         scores = self.drop_out(scores)
-        scores = self.relu(self.fc2(scores))
+        scores = self.relu(self.fc2(scores))  # 通过全连接层2和ReLU激活
         scores = self.drop_out(scores)
         scores = self.sigmoid(self.fc3(scores))  # 通过全连接层3和Sigmoid激活，得到分数
+
         scores = scores.view(bs, ncrops, -1).mean(1)  # 平均多个crop的结果
         scores = scores.unsqueeze(dim=2)  # 在最后一维增加一个维度
 
@@ -276,10 +289,14 @@ class Model(nn.Module):
         abnormal_features = features[self.batch_size*10:]  # 后面的为异常视频特征
         abnormal_scores = scores[self.batch_size:]
 
-        feat_magnitudes = torch.norm(features, p=2, dim=2)  # 计算特征的 L2 范数, 衡量每个特征的大小
-        feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).mean(1)
+        feat_magnitudes = torch.norm(features, p=2, dim=2)  # 计算特征的 L2 范数, 衡量每个特征的大小。对于每个特征向量（每个时间步的特征），计算其 L2 范数 --> (batch_size * num_crops, time)
+
+        # 对每个视频的多个 crop 计算特征大小的均值/方差，得到每个时间步上最终的特征大小
+        # feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).mean(1)  # view(.): --> (batch_size, num_crops, time); mean(1): 对 num_crops 维度的均值计算，合并所有 crop 的特征大小 --> (batch_size, time)
+        feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).var(1)  # new-var: 根据特征的方差来衡量多个 crop 之间的特征波动程度
+
         nfea_magnitudes = feat_magnitudes[0:self.batch_size]  # normal feature magnitudes
-        afea_magnitudes = feat_magnitudes[self.batch_size:]  # abnormal feature magnitudes
+        afea_magnitudes = feat_magnitudes[self.batch_size:]   # abnormal feature magnitudes
         n_size = nfea_magnitudes.shape[0]
 
         if nfea_magnitudes.shape[0] == 1:  # this is for inference, the batch size is 1 (initialize abnormal variables)
@@ -304,7 +321,10 @@ class Model(nn.Module):
             total_select_abn_feature = torch.cat((total_select_abn_feature, feat_select_abn))
 
         idx_abn_score = idx_abn.unsqueeze(2).expand([-1, -1, abnormal_scores.shape[2]])
-        score_abnormal = torch.mean(torch.gather(abnormal_scores, 1, idx_abn_score), dim=1)  # top 3 scores in abnormal bag based on the top-3 magnitude
+
+        # top 3 scores in abnormal bag based on the top-3 magnitude
+        score_abnormal = torch.mean(torch.gather(abnormal_scores, 1, idx_abn_score), dim=1) # 计算top 3 scores的均值
+        # score_abnormal = torch.var(torch.gather(abnormal_scores, 1, idx_abn_score), dim=1)  # 计算top 3 scores的方差
 
 
         ####### process normal videos -> select top3 feature magnitude #######
@@ -324,7 +344,11 @@ class Model(nn.Module):
             total_select_nor_feature = torch.cat((total_select_nor_feature, feat_select_normal))
 
         idx_normal_score = idx_normal.unsqueeze(2).expand([-1, -1, normal_scores.shape[2]])
-        score_normal = torch.mean(torch.gather(normal_scores, 1, idx_normal_score), dim=1)  # top 3 scores in normal bag
+
+        # top 3 scores in normal bag
+        score_normal = torch.mean(torch.gather(normal_scores, 1, idx_normal_score), dim=1) # 计算top 3 scores的均值
+        # score_normal = torch.var(torch.gather(normal_scores, 1, idx_normal_score), dim=1)  # 计算top 3 scores的方差 
+
 
         feat_select_abn = total_select_abn_feature
         feat_select_normal = total_select_nor_feature
