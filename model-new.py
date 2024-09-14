@@ -193,11 +193,11 @@ class Aggregate(nn.Module):
             out1 = self.conv_1(out)
             out2 = self.conv_2(out)
             out3 = self.conv_3(out)
-            out_d = torch.cat((out1, out2, out3), dim = 1)  # origin
+            # out_d = torch.cat((out1, out2, out3), dim = 1)  # origin
 
-            # # new-b: 引入更多的卷积核和膨胀率
-            # out3_2 = self.conv_3_2(out) 
-            # out_d = torch.cat((out1, out2, out3, out3_2), dim = 1) 
+            # new-b: 引入更多的卷积核和膨胀率
+            out3_2 = self.conv_3_2(out) 
+            out_d = torch.cat((out1, out2, out3, out3_2), dim = 1) 
             
             # new-a: 权重融合
             # out_d = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3 
@@ -266,7 +266,7 @@ class Model(nn.Module):
         k_nor = self.k_nor
 
         out = inputs  
-        bs, ncrops, t, f = out.size() # batch_size, num_crops, time, features
+        bs, ncrops, t, f = out.size() # batch_size, num_crops, time, features. num_crops: each video, per time step, has num_crops crop versions. ("look at" the input from different angles)
 
         out = out.view(-1, t, f)  # (batch_size*num_crops, time, features)
         out = self.Aggregate(out)  # 聚合特征，输出大小保持不变
@@ -277,13 +277,17 @@ class Model(nn.Module):
         scores = self.drop_out(scores)
         scores = self.relu(self.fc2(scores))  # 通过全连接层2和ReLU激活
         scores = self.drop_out(scores)
-        scores = self.sigmoid(self.fc3(scores))  # 通过全连接层3和Sigmoid激活，得到分数
+        scores = self.sigmoid(self.fc3(scores))  # 通过全连接层3和Sigmoid激活，得到score
+        print(f'score Before mean: {score.shape}')
+        # breakpoint()
 
         scores = scores.view(bs, ncrops, -1).mean(1)  # 平均多个crop的结果
+        print(f'score After mean: {score.shape}')
+
         scores = scores.unsqueeze(dim=2)  # 在最后一维增加一个维度
 
         # inputs: torch.cat((ninput, ainput), 0) 
-        normal_features = features[0:self.batch_size*10]  # 前面10倍bs的视频为正常视频特征
+        normal_features = features[0:self.batch_size*10]  # 前面 10倍bs 的视频为正常视频特征
         normal_scores = scores[0:self.batch_size]
 
         abnormal_features = features[self.batch_size*10:]  # 后面的为异常视频特征
