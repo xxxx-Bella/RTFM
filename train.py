@@ -57,22 +57,28 @@ class RTFM_loss(torch.nn.Module):
         self.criterion = torch.nn.BCELoss()
 
     def forward(self, score_normal, score_abnormal, nlabel, alabel, feat_n, feat_a):
-        label = torch.cat((nlabel, alabel), 0)
-        score_abnormal = score_abnormal
-        score_normal = score_normal
+        
+        score_abnormal = score_abnormal  # 异常样本的预测得分
+        score_normal = score_normal      # 正常样本的预测得分
 
-        score = torch.cat((score_normal, score_abnormal), 0)
+        score = torch.cat((score_normal, score_abnormal), 0)  # 完整的得分集
         score = score.squeeze()
 
+        label = torch.cat((nlabel, alabel), 0)  # 完整的标签集
         label = label.cuda()
 
+        # 衡量 模型输出的预测得分 和真实标签 之间的误差
         loss_cls = self.criterion(score, label)  # BCE loss in the score space
 
-        loss_abn = torch.abs(self.margin - torch.norm(torch.mean(feat_a, dim=1), p=2, dim=1))
+        feat_a_l2 = torch.norm(torch.mean(feat_a, dim=1), p=2, dim=1)  # 每个异常样本的L2范数
+        loss_abn = torch.abs(self.margin - feat_a_l2)  # 控制异常特征的大小，使其与margin接近
 
         loss_nor = torch.norm(torch.mean(feat_n, dim=1), p=2, dim=1)
 
         loss_rtfm = torch.mean((loss_abn + loss_nor) ** 2)
+        # print(f'loss_abn = {loss_abn}, {loss_abn.shape}')     # torch.Size([40])
+        # print(f'loss_nor = {loss_nor}, {loss_nor.shape}')     # torch.Size([40])
+        # print(f'loss_rtfm = {loss_rtfm}, {loss_rtfm.shape}')  # float
 
         loss_total = loss_cls + self.alpha * loss_rtfm
 

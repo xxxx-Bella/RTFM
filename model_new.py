@@ -12,14 +12,14 @@ def weight_init(m):
             m.bias.data.fill_(0)
 
 '''
-new: 
+new?: 
 非局部块的计算复杂度较高，尤其是对于长时间序列。可以考虑使用更轻量级的注意力机制，如Self-Attention或Transformer替代，减少计算量;
 如果模型的数据特征在时间或空间维度上局部相关性较强，可以尝试局部注意力机制，减少全局范围的计算负担
 '''
 class _NonLocalBlockND(nn.Module):
-    '''通用的 Non-Local Block 模块，适用于 1D, 2D 或 3D 数据.
+    '''通用的 Non-Local Block 模块，适用于 1D, 2D 或 3D 数据. Non-local Neural Networks
     Non-Local 模块: 捕获远距离依赖关系的机制 
-    the global temporal dependencies between video snippets
+    the global temporal dependencies between video snippets. 
     '''
     def __init__(self, in_channels, inter_channels=None, dimension=3, sub_sample=True, bn_layer=True):
         super(_NonLocalBlockND, self).__init__()
@@ -119,6 +119,25 @@ class NONLocalBlock1D(_NonLocalBlockND):
                                               bn_layer=bn_layer)
 
 
+# new-c
+class Bottleneck(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(Bottleneck, self).__init__()
+        self.conv1 = nn.Conv1d(in_channels, out_channels // 4, kernel_size=1)
+        self.conv2 = nn.Conv1d(out_channels // 4, out_channels // 4, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv1d(out_channels // 4, out_channels, kernel_size=1)
+        self.relu = nn.ReLU()
+        
+    def forward(self, x):
+        residual = x
+        out = self.conv1(x)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out = self.relu(out)
+        out = self.conv3(out)
+        out = self.relu(out + residual)
+        return out
+
 
 class Aggregate(nn.Module):
     '''特征聚合模块，用于处理输入的特征. 包含多个卷积层和 Non-Local Block.
@@ -129,13 +148,6 @@ class Aggregate(nn.Module):
         bn = nn.BatchNorm1d
         self.len_feature = len_feature  # 输入特征的长度（即输入的通道数，通常是 2048）
 
-        '''
-        new-b:
-         现有模型只使用了三种膨胀率（dilation=1, 2, 4）进行卷积操作。可以进一步扩展这个多尺度卷积机制，比如引入不同大小的卷积核（如 kernel_size=1, 3, 5），或者再增加更多的膨胀率
-
-        self.conv_4 = nn.Conv1d(in_channels=2048, out_channels=512, kernel_size=5, dilation=8, padding=8)
-        通过引入更多的卷积核和膨胀率，可以捕捉到更多不同尺度的信息，提升模型的特征表达能力
-        '''
         # 使用了不同膨胀率 (dilation) 的卷积核 来捕获不同范围的上下文信息
         self.conv_1 = nn.Sequential(
             nn.Conv1d(in_channels=len_feature, out_channels=512, kernel_size=3, 
@@ -158,8 +170,19 @@ class Aggregate(nn.Module):
             bn(512)
             # nn.dropout(0.7),
         )
-        # new-b: 引入更多的卷积核和膨胀率
-        self.conv_3_2 = nn.Conv1d(in_channels=len_feature, out_channels=512, kernel_size=5, dilation=8, padding=8)
+        '''
+        new-b: 引入更多的卷积核和膨胀率
+         现有模型只使用了三种膨胀率（dilation=1, 2, 4）进行卷积操作。可以进一步扩展这个多尺度卷积机制，比如引入不同大小的卷积核（如 kernel_size=1, 3, 5），或者再增加更多的膨胀率
+        self.conv_3_2 = nn.Conv1d(in_channels=2048, out_channels=512, kernel_size=5, dilation=8, padding=8) 通过引入更多的卷积核和膨胀率，可以捕捉到更多不同尺度的信息，提升模型的特征表达能力
+        '''
+        # self.conv_3_2 = nn.Conv1d(in_channels=len_feature, out_channels=512, kernel_size=5, dilation=8, padding=8)
+        self.conv_3_2 = nn.Sequential(
+            nn.Conv1d(in_channels=len_feature, out_channels=512, kernel_size=5, 
+                        dilation=4, padding=8),
+            nn.ReLU(),
+            bn(512)
+            # nn.dropout(0.7),
+        )
 
         # 使用 1x1 卷积对特征进行进一步压缩
         self.conv_4 = nn.Sequential(
@@ -171,17 +194,28 @@ class Aggregate(nn.Module):
         
         # 将所有特征融合在一起
         self.conv_5 = nn.Sequential(
-            nn.Conv1d(in_channels=2048, out_channels=2048, kernel_size=3,
+            nn.Conv1d(in_channels=1024, out_channels=2048, kernel_size=3,  # new-a 1024; new-b 2560; original 2048
                       stride=1, padding=1, bias=False), # should we keep the bias?
             nn.ReLU(),
             nn.BatchNorm1d(2048),
             # nn.dropout(0.7)
         )
 
+        '''new-c: 使用 Bottleneck 模块: class Bottleneck(nn.Module)
+        当前模型使用了简单的残差连接，可以进一步优化残差连接的结构，例如使用 Bottleneck 残差块来减少参数量，同时提高特征表达能力。Bottleneck 可以有效减少计算量，同时保持残差网络的优势
+        '''
+        self.bottleneck = Bottleneck(in_channels=2048, out_channels=2048)
+
         self.non_local = NONLocalBlock1D(512, sub_sample=False, bn_layer=True)
         
-        # new-a: 权重融合，即使用可学习的权重对不同尺度的特征进行加权求和，增强模型的自适应性
+        '''new-a: 权重融合, 用可学习的权重对不同尺度的特征进行加权求和，增强模型的自适应性.
+        当前多尺度卷积的结果通过 torch.cat 拼接在一起。可以进一步改进为 权重融合。
         self.weights = nn.Parameter(torch.ones(3))
+        out = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3
+        这样网络可以动态调整不同尺度特征的重要性，从而提高模型的灵活性
+        '''
+        self.weights = nn.Parameter(torch.ones(4))
+        
 
 
     def forward(self, x):
@@ -190,50 +224,35 @@ class Aggregate(nn.Module):
             residual = out
 
             # 三层不同膨胀率的卷积 捕获不同范围的上下文信息
-            out1 = self.conv_1(out)
-            out2 = self.conv_2(out)
-            out3 = self.conv_3(out)
-            # out_d = torch.cat((out1, out2, out3), dim = 1)  # origin
+            out1 = self.conv_1(out)  # [10, 512, 37]
+            out2 = self.conv_2(out)  # [10, 512, 37]
+            out3 = self.conv_3(out)  # [10, 512, 37]
+            # out_d = torch.cat((out1, out2, out3), dim = 1)  # origin  [10, 1536, 37]
 
-            # new-b: 引入更多的卷积核和膨胀率
-            out3_2 = self.conv_3_2(out) 
-            out_d = torch.cat((out1, out2, out3, out3_2), dim = 1) 
-            
-            # new-a: 权重融合
-            # out_d = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3 
-            '''
-            new-a: 
-            当前多尺度卷积的结果通过 torch.cat 拼接在一起。可以进一步改进为 权重融合，即使用可学习的权重对不同尺度的特征进行加权求和，增强模型的自适应性。
-            self.weights = nn.Parameter(torch.ones(3))
-            out = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3
-            这样网络可以动态调整不同尺度特征的重要性，从而提高模型的灵活性
-            '''
+            # New-b: 引入更多的卷积核和膨胀率
+            out3_2 = self.conv_3_2(out) # [10, 512, 21]
+            # out_d = torch.cat((out1, out2, out3, out3_2), dim = 1)  # [10, 2048, 37]
+
+            # print(out1.shape, out2.shape, out3.shape, out_d0.shape)
+            # print(out3_2.shape, out_d.shape) 
+
+            # New-a: 权重融合
+            out_d = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3 + self.weights[3] * out3_2
+            # print(out_d.shape)  # [10, 512, 37]
 
             # 1x1卷积和Non-Local操作
-            out = self.conv_4(out)  # 使用 1x1 卷积对特征进行进一步压缩
-            out = self.non_local(out)  # 引入 Non-Local Block 来捕获长距离依赖
-            
-            out = torch.cat((out_d, out), dim=1)
+            out = self.conv_4(out)  # 使用 1x1 卷积对特征进行进一步压缩 [10, 512, 37]
+            # print(out.shape) 
+            out = self.non_local(out)  # 引入 Non-Local Block 来捕获长距离依赖 [10, 512, 37]
+            # print(out.shape) 
+            out = torch.cat((out_d, out), dim=1)  # only new-b: [10, 2560, 37]; new-a: [10, 1024, 37]
+            # print(out.shape)
+
             out = self.conv_5(out)   # fuse all the features together
 
-            '''new-c: 
-            当前模型使用了简单的残差连接，可以进一步优化残差连接的结构，例如使用 Bottleneck 残差块来减少参数量，同时提高特征表达能力。
-            class Bottleneck(nn.Module):
-                def __init__(self, in_channels, out_channels):
-                    super(Bottleneck, self).__init__()
-                    self.conv1 = nn.Conv1d(in_channels, out_channels//4, kernel_size=1)
-                    self.conv2 = nn.Conv1d(out_channels//4, out_channels//4, kernel_size=3, padding=1)
-                    self.conv3 = nn.Conv1d(out_channels//4, out_channels, kernel_size=1)
-                    self.relu = nn.ReLU()
-                    
-                def forward(self, x):
-                    residual = x
-                    out = self.conv1(x)
-                    out = self.conv2(out)
-                    out = self.conv3(out)
-                    return self.relu(out + residual)
-            Bottleneck 可以有效减少计算量，同时保持残差网络的优势
-            '''
+            # New-c
+            out = self.bottleneck(out)
+
             # 残差连接：输出与输入相加，形成残差连接，保留原始特征的部分信息
             out = out + residual
             out = out.permute(0, 2, 1)  
@@ -273,31 +292,29 @@ class Model(nn.Module):
         out = self.drop_out(out)
 
         features = out  # (batch_size * num_crops, time, feature_dim)
+        normal_features = features[0:self.batch_size*10]  # 前面 10倍bs 的视频为正常视频特征
+        abnormal_features = features[self.batch_size*10:]  # 后面的为异常视频特征
+
         scores = self.relu(self.fc1(features))  # 通过全连接层1和ReLU激活
         scores = self.drop_out(scores)
         scores = self.relu(self.fc2(scores))  # 通过全连接层2和ReLU激活
         scores = self.drop_out(scores)
-        scores = self.sigmoid(self.fc3(scores))  # 通过全连接层3和Sigmoid激活，得到score
-        print(f'score Before mean: {score.shape}')
-        # breakpoint()
-
-        scores = scores.view(bs, ncrops, -1).mean(1)  # 平均多个crop的结果
-        print(f'score After mean: {score.shape}')
-
+        scores = self.sigmoid(self.fc3(scores))  # 通过全连接层3和Sigmoid激活，得到score # [10, 28, 1] or [80, 32, 1]...
+        scores = scores.view(bs, ncrops, -1).mean(1)  # 平均多个crop的结果 # [1, 28] or [8, 32]...
         scores = scores.unsqueeze(dim=2)  # 在最后一维增加一个维度
 
-        # inputs: torch.cat((ninput, ainput), 0) 
-        normal_features = features[0:self.batch_size*10]  # 前面 10倍bs 的视频为正常视频特征
         normal_scores = scores[0:self.batch_size]
-
-        abnormal_features = features[self.batch_size*10:]  # 后面的为异常视频特征
         abnormal_scores = scores[self.batch_size:]
 
-        feat_magnitudes = torch.norm(features, p=2, dim=2)  # 计算特征的 L2 范数, 衡量每个特征的大小。对于每个特征向量（每个时间步的特征），计算其 L2 范数 --> (batch_size * num_crops, time)
+        # in Eq.2, ||x_t||2
+        feat_magnitudes = torch.norm(features, p=2, dim=2)  # 计算特征的 L2 范数, 衡量每个特征的大小。对于每个特征向量（每个时间步的特征），计算其 L2 范数 --> (bs * num_crops, time)
 
         # 对每个视频的多个 crop 计算特征大小的均值/方差，得到每个时间步上最终的特征大小
-        # feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).mean(1)  # view(.): --> (batch_size, num_crops, time); mean(1): 对 num_crops 维度的均值计算，合并所有 crop 的特征大小 --> (batch_size, time)
-        feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).var(1)  # new-var: 根据特征的方差来衡量多个 crop 之间的特征波动程度
+        # view(.): (bs, num_crops, time); mean(1): 对 num_crops 维度的均值计算，合并所有 crop 的特征大小 (bs, time)
+        feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).mean(1)  
+
+        # New-var: 根据特征的方差来衡量多个 crop 之间的特征波动程度
+        # feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).var(1)  
 
         nfea_magnitudes = feat_magnitudes[0:self.batch_size]  # normal feature magnitudes
         afea_magnitudes = feat_magnitudes[self.batch_size:]   # abnormal feature magnitudes
@@ -308,7 +325,9 @@ class Model(nn.Module):
             abnormal_scores = normal_scores
             abnormal_features = normal_features
 
-        #######  process abnormal videos -> select top3 feature magnitude  #######
+        ##########################################################################
+        #######  Process Abnormal videos -> select top3 feature magnitude  #######
+        ##########################################################################
         select_idx = torch.ones_like(nfea_magnitudes)
         select_idx = self.drop_out(select_idx)
         afea_magnitudes_drop = afea_magnitudes * select_idx  # 使用Dropout后的特征大小
@@ -330,8 +349,9 @@ class Model(nn.Module):
         score_abnormal = torch.mean(torch.gather(abnormal_scores, 1, idx_abn_score), dim=1) # 计算top 3 scores的均值
         # score_abnormal = torch.var(torch.gather(abnormal_scores, 1, idx_abn_score), dim=1)  # 计算top 3 scores的方差
 
-
-        ####### process normal videos -> select top3 feature magnitude #######
+        ######################################################################
+        ####### Process Normal videos -> select top3 feature magnitude #######
+        ######################################################################
         select_idx_normal = torch.ones_like(nfea_magnitudes)
         select_idx_normal = self.drop_out(select_idx_normal)
         nfea_magnitudes_drop = nfea_magnitudes * select_idx_normal
@@ -342,8 +362,8 @@ class Model(nn.Module):
         normal_features = normal_features.permute(1, 0, 2, 3)
 
         total_select_nor_feature = torch.zeros(0, device=inputs.device)
-        # 根据选出的index (idx_normal_feat), 将特征从特征张量 (normal_features) 中选出来 
         for nor_fea in normal_features:
+            # 根据选出的index (idx_normal_feat), 将特征从特征张量 (normal_features) 中选出来 
             feat_select_normal = torch.gather(nor_fea, 1, idx_normal_feat)  # top 3 features magnitude in normal bag (hard negative)
             total_select_nor_feature = torch.cat((total_select_nor_feature, feat_select_normal))
 
@@ -353,7 +373,7 @@ class Model(nn.Module):
         score_normal = torch.mean(torch.gather(normal_scores, 1, idx_normal_score), dim=1) # 计算top 3 scores的均值
         # score_normal = torch.var(torch.gather(normal_scores, 1, idx_normal_score), dim=1)  # 计算top 3 scores的方差 
 
-
+        ################## Final Selected Features #########################
         feat_select_abn = total_select_abn_feature
         feat_select_normal = total_select_nor_feature
 

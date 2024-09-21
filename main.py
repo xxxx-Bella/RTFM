@@ -2,7 +2,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch
 from utils import save_best_record
-from model import Model
+from model_new import Model
 from dataset import Dataset
 from train import train
 from test_10crop import test
@@ -107,9 +107,9 @@ if __name__ == '__main__':
             if test_info["test_AUC"][-1] > best_AUC:
                 best_AUC = test_info["test_AUC"][-1]
                 torch.save(model.state_dict(), './ckpt/' + args.model_name + f'{step}-i3d.pkl')
-                save_best_record(test_info, os.path.join(output_path, log_dir, f'{args.run_name}_test_auc.txt'))
+                save_best_record(test_info, os.path.join(output_path, log_dir, f'{args.run_name}.txt'))
                 wandb.log({"epoch": test_info["epoch"], "best_AUC": test_info["test_AUC"]})
-                wandb.save('./ckpt/' + args.model_name + f'{step}-i3d.pkl') 
+                # wandb.save('./ckpt/' + args.model_name + f'{step}-i3d.pkl') 
 
     torch.save(model.state_dict(), './ckpt/' + args.model_name + 'final.pkl')
-    wandb.save('./ckpt/' + args.model_name + 'final.pkl')
+    # wandb.save('./ckpt/' + args.model_name + 'final.pkl')
