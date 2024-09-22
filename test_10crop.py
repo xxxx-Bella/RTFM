@@ -14,8 +14,7 @@ def test(dataloader, model, args, wandb, device):
         for i, input in enumerate(dataloader):
             input = input.to(device)
             input = input.permute(0, 2, 1, 3)
-            score_abnormal, score_normal, feat_select_abn, feat_select_normal, feat_abn_bottom, feat_select_normal_bottom, logits, \
-            scores_nor_bottom, scores_nor_abn_bag, feat_magnitudes = model(inputs=input)
+            score_abnormal, score_normal, feat_select_abn, feat_select_normal, logits, feat_magnitudes = model(inputs=input)
             logits = torch.squeeze(logits, 1)
             logits = torch.mean(logits, 0)
             sig = logits

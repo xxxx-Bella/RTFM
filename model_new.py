@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.init as torch_init
+# from normal_head import NormalHead
+
 torch.set_default_tensor_type('torch.FloatTensor')
 
 def weight_init(m):
@@ -184,7 +186,7 @@ class Aggregate(nn.Module):
             # nn.dropout(0.7),
         )
 
-        # 使用 1x1 卷积对特征进行进一步压缩
+        # 使用 1x1 卷积对特征进行进一步压缩 (D --> D/4)
         self.conv_4 = nn.Sequential(
             nn.Conv1d(in_channels=2048, out_channels=512, kernel_size=1,
                       stride=1, padding=0, bias = False), 
@@ -194,7 +196,7 @@ class Aggregate(nn.Module):
         
         # 将所有特征融合在一起
         self.conv_5 = nn.Sequential(
-            nn.Conv1d(in_channels=1024, out_channels=2048, kernel_size=3,  # new-a 1024; new-b 2560; original 2048
+            nn.Conv1d(in_channels=1024, out_channels=2048, kernel_size=3,  # new-a 1024; only new-b 2560; original 2048
                       stride=1, padding=1, bias=False), # should we keep the bias?
             nn.ReLU(),
             nn.BatchNorm1d(2048),
@@ -237,11 +239,10 @@ class Aggregate(nn.Module):
             # print(out3_2.shape, out_d.shape) 
 
             # New-a: 权重融合
-            out_d = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3 + self.weights[3] * out3_2
-            # print(out_d.shape)  # [10, 512, 37]
+            out_d = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3 + self.weights[3] * out3_2  # [10, 512, 37]
 
             # 1x1卷积和Non-Local操作
-            out = self.conv_4(out)  # 使用 1x1 卷积对特征进行进一步压缩 [10, 512, 37]
+            out = self.conv_4(out)  # 使用 1x1 卷积对特征进行进一步压缩 [10, 512, 37]  (D --> D/4)
             # print(out.shape) 
             out = self.non_local(out)  # 引入 Non-Local Block 来捕获长距离依赖 [10, 512, 37]
             # print(out.shape) 
@@ -262,8 +263,10 @@ class Aggregate(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, n_features, batch_size):
+    def __init__(self, n_features, batch_size, args):
         super(Model, self).__init__()
+
+        self.args = args
         self.batch_size = batch_size
         self.num_segments = 32  # T snippets each video
         self.k_abn = self.num_segments // 10  # k = 3 = 32 // 10 (topk: top 10%)
@@ -279,7 +282,15 @@ class Model(nn.Module):
         self.sigmoid = nn.Sigmoid()
         self.apply(weight_init)  # 使用自定义的权重初始化方法初始化网络参数
 
+        # self.normal_head = NormalHead(in_channel=512, ratios=args.ratios, kernel_sizes=args.kernel_sizes)
+
+
     def forward(self, inputs):
+
+        # anchors = [bn.running_mean for bn in self.normal_head.bns]  # Mean Vector of BatchNorm
+        # # anchors[0].shape = torch.Size([32]), anchors[1].shape = torch.Size([16]) 
+        # breakpoint()
+
         # inputs: torch.cat((ninput, ainput), 0) 
         k_abn = self.k_abn
         k_nor = self.k_nor
@@ -377,5 +388,5 @@ class Model(nn.Module):
         feat_select_abn = total_select_abn_feature
         feat_select_normal = total_select_nor_feature
 
-        return score_abnormal, score_normal, feat_select_abn, feat_select_normal, feat_select_abn, feat_select_abn, scores, feat_select_abn, feat_select_abn, feat_magnitudes
-        # return score_abnormal, score_normal, feat_select_abn, feat_select_normal, scores, feat_magnitudes
+        # return score_abnormal, score_normal, feat_select_abn, feat_select_normal, feat_select_abn, feat_select_abn, scores, feat_select_abn, feat_select_abn, feat_magnitudes
+        return score_abnormal, score_normal, feat_select_abn, feat_select_normal, scores, feat_magnitudes

@@ -50,7 +50,7 @@ if __name__ == '__main__':
     # breakpoint()
 
     # model define and optimizer
-    model = Model(args.feature_size, args.batch_size)
+    model = Model(args.feature_size, args.batch_size, args)
 
     # for name, value in model.named_parameters():
     #     print(name)
@@ -106,10 +106,7 @@ if __name__ == '__main__':
 
             if test_info["test_AUC"][-1] > best_AUC:
                 best_AUC = test_info["test_AUC"][-1]
-                torch.save(model.state_dict(), './ckpt/' + args.model_name + f'{step}-i3d.pkl')
+                # torch.save(model.state_dict(), './ckpt/' + args.model_name + f'{step}-i3d.pkl')
                 save_best_record(test_info, os.path.join(output_path, log_dir, f'{args.run_name}.txt'))
                 wandb.log({"epoch": test_info["epoch"], "best_AUC": test_info["test_AUC"]})
-                # wandb.save('./ckpt/' + args.model_name + f'{step}-i3d.pkl') 
-
-    torch.save(model.state_dict(), './ckpt/' + args.model_name + 'final.pkl')
-    # wandb.save('./ckpt/' + args.model_name + 'final.pkl')
+    torch.save(model.state_dict(), './ckpt/' + f'{args.run_name}-final.pkl')

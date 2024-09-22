@@ -22,3 +22,7 @@ parser.add_argument('--plot-freq', type=int, default=10, help='frequency of plot
 parser.add_argument('--max-epoch', type=int, default=5000, help='maximum iteration to train (default: 100)')
 # parser.add_argument('--fps', type=int, default=30, help='frame per second')
 parser.add_argument('--run-name', type=str, default='this-run', help='run name')
+
+# anchors
+parser.add_argument('--ratios', type=int, nargs='+', default = [16, 32])
+parser.add_argument('--kernel_sizes', type=int, nargs='+', default = [1, 1, 1])
