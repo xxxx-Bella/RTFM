@@ -325,7 +325,7 @@ class Model(nn.Module):
         feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).mean(1)  
 
         # New-var: 根据特征的方差来衡量多个 crop 之间的特征波动程度
-        # feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).var(1)  
+        # feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).var(1) 
 
         nfea_magnitudes = feat_magnitudes[0:self.batch_size]  # normal feature magnitudes
         afea_magnitudes = feat_magnitudes[self.batch_size:]   # abnormal feature magnitudes

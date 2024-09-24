@@ -58,7 +58,7 @@ cd /home/featurize/work/yuxin/WVAD/RTFM && conda create -n "rftm" python=3.9 && 
 # pip install torch matplotlib scikit-learn tqdm 
 
 # python -m visdom.server
-python main.py --run-name x-miu --max-epoch 6000
+python main.py --run-name x-var-loss-lr --max-epoch 7000 --lr 0.001
 
 93d9cb47ca8e71ecdf675438033ea06ebc9cfd9c
 ```

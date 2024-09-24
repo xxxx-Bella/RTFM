@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import torch
-from sklearn.metrics import auc, roc_curve, precision_recall_curve
+from sklearn.metrics import roc_curve, auc, precision_recall_curve, f1_score, accuracy_score
 import numpy as np
 import wandb 
 
@@ -44,12 +44,23 @@ def test(dataloader, model, args, wandb, device):
         np.save(f'log/run-{args.run_name}/fpr.npy', fpr)
         np.save(f'log/run-{args.run_name}/tpr.npy', tpr)
         rec_auc = auc(fpr, tpr)
+
         print('auc : ' + str(rec_auc))
 
+        # Precision, Recall, AP
         precision, recall, th = precision_recall_curve(list(gt), pred)
-        pr_auc = auc(recall, precision)
+        pr_auc = auc(recall, precision)  # AP?
         np.save(f'log/run-{args.run_name}/precision.npy', precision)
         np.save(f'log/run-{args.run_name}/recall.npy', recall)
+        
+        # # F1-score
+        # pred_labels = [1 if p >= 0.5 else 0 for p in pred] 
+        # f1 = f1_score(gt, pred_labels)
+        # print('F1 Score : ' + str(f1))
+        
+        # # Overall Accuracy (OA)
+        # oa = accuracy_score(gt, pred_labels)
+        # print('Overall Accuracy (OA) : ' + str(oa))
 
         # vis.plot_lines('pr_auc', pr_auc)
         # vis.plot_lines('auc', rec_auc)

@@ -65,8 +65,12 @@ if __name__ == '__main__':
         os.makedirs(log_dir)
 
 
-    optimizer = optim.Adam(model.parameters(),
-                            lr=config.lr[0], weight_decay=0.005)
+    # optimizer = optim.Adam(model.parameters(), lr=config.lr[0], weight_decay=0.005)
+
+    # new-lr
+    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)  # 每10个epoch，学习率衰减10倍
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.005)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)  # T_max是周期的步长
 
     # train & test
     test_info = {"epoch": [], "test_AUC": []}
@@ -84,7 +88,9 @@ if __name__ == '__main__':
     ):
         if step > 1 and config.lr[step - 1] != config.lr[step - 2]:
             for param_group in optimizer.param_groups:
-                param_group["lr"] = config.lr[step - 1]
+                # param_group["lr"] = config.lr[step - 1]
+                # print(f'lr = {param_group["lr"]}') 
+                pass
         
         # 分别从正常和异常的数据加载器中获取数据，并训练模型
         if (step - 1) % len(train_nloader) == 0:
@@ -93,11 +99,11 @@ if __name__ == '__main__':
         if (step - 1) % len(train_aloader) == 0:
             loadera_iter = iter(train_aloader)
 
-        train(loadern_iter, loadera_iter, model, args.batch_size, optimizer, wandb, device)
+        loss = train(loadern_iter, loadera_iter, model, args.batch_size, optimizer, scheduler, wandb, device, log_dir, step, args)
 
         # 每 5 个 epoch 进行一次测试，并保存表现最好的模型
-        if step % 5 == 0 and step > 200:
-
+        if step % 5 == 0 and step > 100:
+            # print('loss:', loss.item())
             auc = test(test_loader, model, args, wandb, device)
             test_info["epoch"].append(step)
             test_info["test_AUC"].append(auc)
