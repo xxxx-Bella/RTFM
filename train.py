@@ -145,19 +145,20 @@ class My_loss(torch.nn.Module):
         # 计算异常和正常特征的方差
         variance_abn = torch.var(feat_a, dim=1)  # variance of 3 abnormal samples. torch.Size([40, 2048])
         variance_nor = torch.var(feat_n, dim=1)  # variance of 3 normal samples. torch.Size([40, 2048])
-        mean_abn = torch.mean(feat_a, dim=1)
-        mean_nor = torch.mean(feat_n, dim=1)
+        mean_abn = torch.mean(feat_a, dim=1)  # torch.Size([40, 2048])
+        mean_nor = torch.mean(feat_n, dim=1)  # torch.Size([40, 2048])
 
-        variance_loss = torch.mean(torch.abs(variance_abn - variance_nor))  # tensor float. Reduce variance difference
+        variance_diff = torch.abs(variance_abn - variance_nor)  # torch.Size([40, 2048]) 方差差异通常为非负值，且只关心差异大小。用 torch.abs 保证所有差异为正，并能逐特征地衡量每个维度的差异
+        variance_loss = torch.mean(variance_diff)  # tensor float.
         # mean_diff = torch.mean(torch.abs(mean_abn - mean_nor))  
         # mean_loss = 1 - mean_diff  # Maximize mean difference 
-        mean_diff = torch.norm(mean_abn - mean_nor, p=2, dim=1)
-        mean_loss = -torch.mean(mean_diff)
+        mean_diff = torch.norm(mean_abn - mean_nor, p=2, dim=1)  # l2 norm, dim 1, torch.Size([40]) 均值差异涉及所有特征维度的整体差异，用 L2 范数（torch.norm）可以更好地衡量总体差异。这样能得到每个样本的整体均值差异，而不仅是单个特征维度的差异
+        mean_loss = - torch.mean(mean_diff)
         # print(f'variance_abn = {variance_abn}, variance_nor = {variance_nor}')
         # print(f'mean_abn = {mean_abn}, mean_nor = {mean_nor}')
         # print(f'variance_loss = {variance_loss}, mean_diff = {mean_diff}')
         # print(f'mean_loss = {mean_loss}')
-        # breakpoint()
+        breakpoint()
 
         # new-total-loss
         loss_total = loss_cls + self.alpha * (mean_loss + variance_loss)

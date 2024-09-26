@@ -46,7 +46,7 @@ The following files need to be adapted in order to run the code on your own mach
 After the setup, simply run the following commands: 
 
 ```shell
-cd /home/featurize/work/yuxin/WVAD/RTFM && conda create -n "rftm" python=3.9 && conda activate rftm && pip install torch matplotlib scikit-learn tqdm wandb
+cd /home/featurize/work/yuxin/WVAD/RTFM && conda create -n "rftm" python=3.9 && conda activate rftm && pip install torch matplotlib scikit-learn tqdm wandb seaborn
 # conda info --envs
 
 # pip install visdom
@@ -58,7 +58,7 @@ cd /home/featurize/work/yuxin/WVAD/RTFM && conda create -n "rftm" python=3.9 && 
 # pip install torch matplotlib scikit-learn tqdm 
 
 # python -m visdom.server
-python main.py --run-name x-var-loss-lr --max-epoch 7000 --lr 0.001
+python main.py --run-name x-try --max-epoch 1000 
 
 93d9cb47ca8e71ecdf675438033ea06ebc9cfd9c
 ```
