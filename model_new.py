@@ -141,12 +141,12 @@ class Bottleneck(nn.Module):
         return out
 
 
-class Aggregate(nn.Module):
+class FeatureAggregator(nn.Module):
     '''特征聚合模块，用于处理输入的特征. 包含多个卷积层和 Non-Local Block.
     目的是在 时间维度上 聚合特征 并捕捉时间依赖关系
     '''
     def __init__(self, len_feature):
-        super(Aggregate, self).__init__()
+        super(FeatureAggregator, self).__init__()
         bn = nn.BatchNorm1d
         self.len_feature = len_feature  # 输入特征的长度（即输入的通道数，通常是 2048）
 
@@ -272,7 +272,7 @@ class Model(nn.Module):
         self.k_abn = self.num_segments // 10  # k = 3 = 32 // 10 (topk: top 10%)
         self.k_nor = self.num_segments // 10
 
-        self.Aggregate = Aggregate(len_feature=2048)  # 特征聚合模块, 通常用于聚合时序特征
+        self.FeatureAggregator = FeatureAggregator(len_feature=2048)  # 特征聚合模块, 通常用于聚合时序特征
         self.fc1 = nn.Linear(n_features, 512)  # 全连接层1，将输入特征数减少到512
         self.fc2 = nn.Linear(512, 128)
         self.fc3 = nn.Linear(128, 1)  # 三层全连接层，将特征压缩 并生成最后的异常得分
@@ -282,111 +282,127 @@ class Model(nn.Module):
         self.sigmoid = nn.Sigmoid()
         self.apply(weight_init)  # 使用自定义的权重初始化方法初始化网络参数
 
-        # self.normal_head = NormalHead(in_channel=512, ratios=args.ratios, kernel_sizes=args.kernel_sizes)
-
 
     def forward(self, inputs):
-
+        '''
+        inputs.shape = (bs, n_crops, n_segments, feature_dim)  
+        torch.Size([8, 10, 32, 2048]), or torch.Size([1, 10, 18, 2048])
+        n_crops: each video, per n_segments step, has n_crops crop versions. ("look at" the input from different angles)
+        '''
+        print('Calling Model.forward()...')
+        print(f"inputs: {inputs.shape}")
         # anchors = [bn.running_mean for bn in self.normal_head.bns]  # Mean Vector of BatchNorm
         # # anchors[0].shape = torch.Size([32]), anchors[1].shape = torch.Size([16]) 
-        # breakpoint()
 
         # inputs: torch.cat((ninput, ainput), 0) 
-        k_abn = self.k_abn
+        k_abn = self.k_abn  # 3
         k_nor = self.k_nor
 
-        out = inputs  
-        bs, ncrops, t, f = out.size() # batch_size, num_crops, time, features. num_crops: each video, per time step, has num_crops crop versions. ("look at" the input from different angles)
-
-        out = out.view(-1, t, f)  # (batch_size*num_crops, time, features)
-        out = self.Aggregate(out)  # 聚合特征，输出大小保持不变
+        out = inputs  # (bs, n_crops, n_segments, feature_dim)
+        bs, ncrops, t, f = out.size()  # torch.Size([8, 10, 32, 2048])
+        # breakpoint()
+        out = out.view(-1, t, f)  # (bs*n_crops, n_segments, feature_dim) torch.Size([80, 32, 2048])
+        out = self.FeatureAggregator(out)  # 聚合特征，输出大小保持不变 torch.Size([80, 32, 2048])
         out = self.drop_out(out)
 
-        features = out  # (batch_size * num_crops, time, feature_dim)
-        normal_features = features[0:self.batch_size*10]  # 前面 10倍bs 的视频为正常视频特征
-        abnormal_features = features[self.batch_size*10:]  # 后面的为异常视频特征
+        features = out  # (bs*n_crops, n_segments, feature_dim)  torch.Size([80, 32, 2048])
+        normal_features = features[0:self.batch_size*10]  # 前面 n_crops*bs 个为正常视频特征 torch.Size([40, 32, 2048])
+        abnormal_features = features[self.batch_size*10:]  # 后面的为异常视频特征 torch.Size([40, 32, 2048])
+        # breakpoint()
 
-        scores = self.relu(self.fc1(features))  # 通过全连接层1和ReLU激活
-        scores = self.drop_out(scores)
-        scores = self.relu(self.fc2(scores))  # 通过全连接层2和ReLU激活
-        scores = self.drop_out(scores)
-        scores = self.sigmoid(self.fc3(scores))  # 通过全连接层3和Sigmoid激活，得到score # [10, 28, 1] or [80, 32, 1]...
-        scores = scores.view(bs, ncrops, -1).mean(1)  # 平均多个crop的结果 # [1, 28] or [8, 32]...
-        scores = scores.unsqueeze(dim=2)  # 在最后一维增加一个维度
+        y_pred = self.relu(self.fc1(features))  # 通过全连接层1和ReLU激活 torch.Size([80, 32, 512])
+        y_pred = self.drop_out(y_pred)
+        y_pred = self.relu(self.fc2(y_pred))  # 通过全连接层2和ReLU激活 torch.Size([80, 32, 128])
+        y_pred = self.drop_out(y_pred)
+        y_pred = self.sigmoid(self.fc3(y_pred))  # 通过全连接层3和Sigmoid激活，得到y_pred # torch.Size([80, 32, 1])
+        y_pred = y_pred.view(bs, ncrops, -1).mean(1)  # 平均多个crop的结果  torch.Size([8, 32])
+        y_pred = y_pred.unsqueeze(dim=2)  # 在最后一维增加一个维度  torch.Size([8, 32, 1])
 
-        normal_scores = scores[0:self.batch_size]
-        abnormal_scores = scores[self.batch_size:]
+        normal_y_pred = y_pred[0:self.batch_size]  # torch.Size([4, 32, 1])
+        abnormal_y_pred = y_pred[self.batch_size:]  # torch.Size([4, 32, 1])
 
         # in Eq.2, ||x_t||2
-        feat_magnitudes = torch.norm(features, p=2, dim=2)  # 计算特征的 L2 范数, 衡量每个特征的大小。对于每个特征向量（每个时间步的特征），计算其 L2 范数 --> (bs * num_crops, time)
+        feat_magnitudes = torch.norm(features, p=2, dim=2)  # 计算特征的 L2 范数, 衡量每个特征的大小。对于每个特征向量（每个时间步的特征），计算其 L2 范数 --> (bs*n_crops, n_segments)  torch.Size([80, 32])
+        # breakpoint()
 
         # 对每个视频的多个 crop 计算特征大小的均值/方差，得到每个时间步上最终的特征大小
-        # view(.): (bs, num_crops, time); mean(1): 对 num_crops 维度的均值计算，合并所有 crop 的特征大小 (bs, time)
-        feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).mean(1)  
+        # view(, -1): torch.Size([8, 10, 32])  (bs, n_crops, n_segments); 
+        # mean(1): 对 n_crops 维度的均值计算，合并所有 crop 的特征大小 (bs, n_segments)
+        feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).mean(1)  # torch.Size([8, 32])
+        
 
         # New-var: 根据特征的方差来衡量多个 crop 之间的特征波动程度
         # feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).var(1) 
 
-        nfea_magnitudes = feat_magnitudes[0:self.batch_size]  # normal feature magnitudes
-        afea_magnitudes = feat_magnitudes[self.batch_size:]   # abnormal feature magnitudes
-        n_size = nfea_magnitudes.shape[0]
+        nfea_magnitudes = feat_magnitudes[0:self.batch_size]  # normal feature magnitudes, torch.Size([4, 32])
+        afea_magnitudes = feat_magnitudes[self.batch_size:]   # abnormal feature magnitudes, torch.Size([4, 32])
+        n_size = nfea_magnitudes.shape[0]  # 4
 
-        if nfea_magnitudes.shape[0] == 1:  # this is for inference, the batch size is 1 (initialize abnormal variables)
+        if nfea_magnitudes.shape[0] == 1:  # if inference, batch_size = 1 (initialize abnormal variables)
             afea_magnitudes = nfea_magnitudes
-            abnormal_scores = normal_scores
+            abnormal_y_pred = normal_y_pred
             abnormal_features = normal_features
 
         ##########################################################################
         #######  Process Abnormal videos -> select top3 feature magnitude  #######
         ##########################################################################
-        select_idx = torch.ones_like(nfea_magnitudes)
-        select_idx = self.drop_out(select_idx)
-        afea_magnitudes_drop = afea_magnitudes * select_idx  # 使用Dropout后的特征大小
-        idx_abn = torch.topk(afea_magnitudes_drop, k_abn, dim=1)[1]  # 从特征中选择Top-k的片段
-        idx_abn_feat = idx_abn.unsqueeze(2).expand([-1, -1, abnormal_features.shape[2]])
+        select_idx = torch.ones_like(nfea_magnitudes)  # torch.Size([4, 32])
+        select_idx = self.drop_out(select_idx)  # torch.Size([4, 32])
+        afea_magnitudes_drop = afea_magnitudes * select_idx  # dropout afea_magnitudes, torch.Size([4, 32])
 
-        abnormal_features = abnormal_features.view(n_size, ncrops, t, f)
-        abnormal_features = abnormal_features.permute(1, 0, 2,3)
+        idx_abn = torch.topk(afea_magnitudes_drop, k_abn, dim=1)[1]  # 从特征中选择Top-k的片段 torch.Size([4, 3])
+        idx_abn_feat = idx_abn.unsqueeze(2).expand([-1, -1, abnormal_features.shape[2]])  # torch.Size([4, 3, 2048])
+
+        abnormal_features = abnormal_features.view(n_size, ncrops, t, f)  # torch.Size([40, 32, 2048]) -> torch.Size([4, 10, 32, 2048])
+        abnormal_features = abnormal_features.permute(1, 0, 2, 3)  # torch.Size([10, 4, 32, 2048])
 
         total_select_abn_feature = torch.zeros(0, device=inputs.device)
         for abnormal_feature in abnormal_features:
-            # 根据选出的index (idx_abn_feat), 将特征从特征张量 (abnormal_features) 中选出来 
-            feat_select_abn = torch.gather(abnormal_feature, 1, idx_abn_feat) # top 3 features magnitude in abnormal bag
+            # abnormal_feature: torch.Size([4, 32, 2048])
+            # 根据 idx_abn_feat，从 abnormal_feature 中选出 top-k abnormal feature
+            feat_select_abn = torch.gather(abnormal_feature, 1, idx_abn_feat) # top 3 instances in abnormal bag, torch.Size([4, 3, 2048])
             total_select_abn_feature = torch.cat((total_select_abn_feature, feat_select_abn))
+        
+        # total_select_abn_feature: torch.Size([40, 3, 2048])
+        # breakpoint()
+        idx_abn_y_pred = idx_abn.unsqueeze(2).expand([-1, -1, abnormal_y_pred.shape[2]])  # torch.Size([4, 3, 1])
 
-        idx_abn_score = idx_abn.unsqueeze(2).expand([-1, -1, abnormal_scores.shape[2]])
-
-        # top 3 scores in abnormal bag based on the top-3 magnitude
-        score_abnormal = torch.mean(torch.gather(abnormal_scores, 1, idx_abn_score), dim=1) # 计算top 3 scores的均值
-        # score_abnormal = torch.var(torch.gather(abnormal_scores, 1, idx_abn_score), dim=1)  # 计算top 3 scores的方差
+        # top 3 y_pred in abnormal bag based on the top-3 magnitude
+        y_pred_abnormal = torch.mean(torch.gather(abnormal_y_pred, 1, idx_abn_y_pred), dim=1) # 计算top 3 y_pred的均值 torch.Size([4, 1])
+        # y_pred_abnormal = torch.var(torch.gather(abnormal_y_pred, 1, idx_abn_y_pred), dim=1)  # 计算top 3 y_pred的方差
 
         ######################################################################
         ####### Process Normal videos -> select top3 feature magnitude #######
         ######################################################################
-        select_idx_normal = torch.ones_like(nfea_magnitudes)
+        select_idx_normal = torch.ones_like(nfea_magnitudes)  # torch.Size([4, 32])
         select_idx_normal = self.drop_out(select_idx_normal)
-        nfea_magnitudes_drop = nfea_magnitudes * select_idx_normal
-        idx_normal = torch.topk(nfea_magnitudes_drop, k_nor, dim=1)[1]  # 从特征中选择Top-k的片段
-        idx_normal_feat = idx_normal.unsqueeze(2).expand([-1, -1, normal_features.shape[2]])
+        nfea_magnitudes_drop = nfea_magnitudes * select_idx_normal  # torch.Size([4, 32])
+        idx_normal = torch.topk(nfea_magnitudes_drop, k_nor, dim=1)[1]  # 从特征中选择Top-k的片段 torch.Size([4, 3])
+        idx_normal_feat = idx_normal.unsqueeze(2).expand([-1, -1, normal_features.shape[2]])  # torch.Size([4, 3, 2048])
 
-        normal_features = normal_features.view(n_size, ncrops, t, f)
-        normal_features = normal_features.permute(1, 0, 2, 3)
+        normal_features = normal_features.view(n_size, ncrops, t, f)  # torch.Size([40, 32, 2048]) -> torch.Size([4, 10, 32, 2048])
+        normal_features = normal_features.permute(1, 0, 2, 3)  # torch.Size([10, 4, 32, 2048])
 
         total_select_nor_feature = torch.zeros(0, device=inputs.device)
         for nor_fea in normal_features:
+            # nor_fea: torch.Size([4, 32, 2048])
             # 根据选出的index (idx_normal_feat), 将特征从特征张量 (normal_features) 中选出来 
-            feat_select_normal = torch.gather(nor_fea, 1, idx_normal_feat)  # top 3 features magnitude in normal bag (hard negative)
+            feat_select_normal = torch.gather(nor_fea, 1, idx_normal_feat)  # top 3 features magnitude in normal bag (hard negative), torch.Size([4, 3, 2048])
             total_select_nor_feature = torch.cat((total_select_nor_feature, feat_select_normal))
+        
+        # total_select_nor_feature: torch.Size([40, 3, 2048])
+        # breakpoint()
+        idx_normal_y_pred = idx_normal.unsqueeze(2).expand([-1, -1, normal_y_pred.shape[2]])  # torch.Size([4, 3, 1])
 
-        idx_normal_score = idx_normal.unsqueeze(2).expand([-1, -1, normal_scores.shape[2]])
-
-        # top 3 scores in normal bag
-        score_normal = torch.mean(torch.gather(normal_scores, 1, idx_normal_score), dim=1) # 计算top 3 scores的均值
-        # score_normal = torch.var(torch.gather(normal_scores, 1, idx_normal_score), dim=1)  # 计算top 3 scores的方差 
+        # top 3 y_pred in normal bag
+        y_pred_normal = torch.mean(torch.gather(normal_y_pred, 1, idx_normal_y_pred), dim=1) # 计算top 3 y_pred的均值 torch.Size([4, 1])
+        # y_pred_normal = torch.var(torch.gather(normal_y_pred, 1, idx_normal_y_pred), dim=1)  # 计算top 3 y_pred的方差 
 
         ################## Final Selected Features #########################
-        feat_select_abn = total_select_abn_feature
-        feat_select_normal = total_select_nor_feature
+        feat_select_abn = total_select_abn_feature  # torch.Size([40, 3, 2048])
+        feat_select_normal = total_select_nor_feature  # torch.Size([40, 3, 2048])
 
-        # return score_abnormal, score_normal, feat_select_abn, feat_select_normal, feat_select_abn, feat_select_abn, scores, feat_select_abn, feat_select_abn, feat_magnitudes
-        return score_abnormal, score_normal, feat_select_abn, feat_select_normal, scores, feat_magnitudes
+        # return y_pred_abnormal, y_pred_normal, feat_select_abn, feat_select_normal, feat_select_abn, feat_select_abn, y_pred, feat_select_abn, feat_select_abn, feat_magnitudes
+
+        # [4, 1], [4, 1], [40, 3, 2048], [40, 3, 2048], [8, 32, 1], [8, 32]
+        return y_pred_abnormal, y_pred_normal, feat_select_abn, feat_select_normal, y_pred, feat_magnitudes

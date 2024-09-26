@@ -7,7 +7,7 @@ from dataset import Dataset
 from train import train
 from test_10crop import test
 import option
-from tqdm import tqdm
+from tqdm import tqdm  # 方便地显示循环进度条
 # from utils import Visualizer
 from config import *
 import wandb
@@ -75,44 +75,47 @@ if __name__ == '__main__':
     # train & test
     test_info = {"epoch": [], "test_AUC": []}
     best_AUC = -1
-    output_path = ''   # put your own path here
-    auc = test(test_loader, model, args, wandb, device)
-    # wandb.log({"epoch": step, "test_AUC": auc})
-
+    output_path = log_dir   # put your own path here
+    # print('auc = test(test_loader, model,..)')
+    # auc = test(test_loader, model, args, wandb, device)  # what for? deleted
 
     # train iter
-    for step in tqdm(
+    print('Training ...')
+    for epoch in tqdm(
             range(1, args.max_epoch + 1),
             total=args.max_epoch,
-            dynamic_ncols=True
+            dynamic_ncols=True  # 动态调整进度条的宽度
     ):
-        if step > 1 and config.lr[step - 1] != config.lr[step - 2]:
+        if epoch > 1 and config.lr[epoch - 1] != config.lr[epoch - 2]:
             for param_group in optimizer.param_groups:
-                # param_group["lr"] = config.lr[step - 1]
+                # param_group["lr"] = config.lr[epoch - 1]
                 # print(f'lr = {param_group["lr"]}') 
                 pass
         
-        # 分别从正常和异常的数据加载器中获取数据，并训练模型
-        if (step - 1) % len(train_nloader) == 0:
+        # 分别从 train_nloader和train_aloader中获取数据，以便在训练模型时交替使用正常和异常数据
+        if (epoch - 1) % len(train_nloader) == 0:  # len(train_nloader) = 15
+            # 每经历15个epoch 后，重新创建一个 train_nloader 的迭代器 loadern_iter
             loadern_iter = iter(train_nloader)
-
-        if (step - 1) % len(train_aloader) == 0:
+        if (epoch - 1) % len(train_aloader) == 0:  # len(train_aloader) = 6
             loadera_iter = iter(train_aloader)
 
-        loss = train(loadern_iter, loadera_iter, model, args.batch_size, optimizer, scheduler, wandb, device, log_dir, step, args)
+        loss = train(loadern_iter, loadera_iter, model, args.batch_size, optimizer, scheduler, wandb, device, log_dir, epoch, args)
+        # breakpoint()
 
         # 每 5 个 epoch 进行一次测试，并保存表现最好的模型
-        if step % 5 == 0 and step > 100:
+        if epoch % 5 == 0 and epoch > 100:
+            print('Testing ...')
             # print('loss:', loss.item())
+            print('auc = test(test_loader, model,..)')
             auc = test(test_loader, model, args, wandb, device)
-            test_info["epoch"].append(step)
+            test_info["epoch"].append(epoch)
             test_info["test_AUC"].append(auc)
 
-            wandb.log({"epoch": step, "test_AUC": auc})
+            wandb.log({"epoch": epoch, "test_AUC": auc})
 
             if test_info["test_AUC"][-1] > best_AUC:
                 best_AUC = test_info["test_AUC"][-1]
-                # torch.save(model.state_dict(), './ckpt/' + args.model_name + f'{step}-i3d.pkl')
+                # torch.save(model.state_dict(), './ckpt/' + args.model_name + f'{epoch}-i3d.pkl')
                 save_best_record(test_info, os.path.join(output_path, log_dir, f'{args.run_name}.txt'))
                 wandb.log({"epoch": test_info["epoch"], "best_AUC": test_info["test_AUC"]})
     torch.save(model.state_dict(), './ckpt/' + f'{args.run_name}-final.pkl')
