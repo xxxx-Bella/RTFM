@@ -49,14 +49,6 @@ After the setup, simply run the following commands:
 cd /home/featurize/work/yuxin/WVAD/RTFM && conda create -n "rftm" python=3.9 && conda activate rftm && pip install torch matplotlib scikit-learn tqdm wandb seaborn
 # conda info --envs
 
-# pip install visdom
-# git clone https://github.com/facebookresearch/visdom.git
-# cd visdom
-# npm install --no-optional
-# npm run build
-
-# pip install torch matplotlib scikit-learn tqdm 
-
 # python -m visdom.server
 python main.py --run-name x-try --max-epoch 1000 
 
@@ -75,8 +67,8 @@ python main.py --run-name x-try --max-epoch 1000
 
 * drone_anomaly_new (done)  # split each video (window-size=600)
 
-* generate i3d of drone_anomaly_new
+* generate i3d of drone_anomaly_new (done)
 
-* npy in abnormal -->(copy) output/drone_anomaly_new
+* npy in abnormal -->(copy) output/drone_anomaly_new  (done)
 
 ---

@@ -158,7 +158,7 @@ class My_loss(torch.nn.Module):
         # print(f'mean_abn = {mean_abn}, mean_nor = {mean_nor}')
         # print(f'variance_loss = {variance_loss}, mean_diff = {mean_diff}')
         # print(f'mean_loss = {mean_loss}')
-        breakpoint()
+        # breakpoint()
 
         # new-total-loss
         loss_total = loss_cls + self.alpha * (mean_loss + variance_loss)
@@ -182,7 +182,8 @@ def train(nloader, aloader, model, batch_size, optimizer, scheduler, wandb, devi
         input = torch.cat((ninput, ainput), 0).to(device)  # torch.Size([8, 10, 32, 2048])
 
         y_pred_abnormal, y_pred_normal, feat_select_abn, feat_select_normal, y_pred, _ = model(input)
-        # [4, 1], [4, 1], [40, 3, 2048], [40, 3, 2048], [8, 32, 1], [8, 32]
+        # [4, 1], [4, 1], [40, 3, 2048], [40, 3, 2048], [8, 32, 1], [8, 32] train: bs=4, T=32
+        # [1, 1], [1, 1], [10, 3, 2048], [10, 3, 2048], [1, 37, 1], [1, 37] test: bs=1
 
         if epoch % 200 == 0 and epoch > 199:
             draw_distribution(feat_select_normal, feat_select_abn, log_dir, epoch)

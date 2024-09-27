@@ -12,13 +12,19 @@ def test(dataloader, model, args, wandb, device):
         pred = torch.zeros(0, device=device)
 
         for i, input in enumerate(dataloader):
-            input = input.to(device)
-            input = input.permute(0, 2, 1, 3)
-            score_abnormal, score_normal, feat_select_abn, feat_select_normal, logits, feat_magnitudes = model(inputs=input)
-            logits = torch.squeeze(logits, 1)
-            logits = torch.mean(logits, 0)
+            input = input.to(device)  # torch.Size([1, 37, 10, 2048])
+            input = input.permute(0, 2, 1, 3)  # torch.Size([1, 10, 37, 2048])
+            score_abnormal, score_normal, feat_select_abn, feat_select_normal, y_pred, feat_magnitudes = model(inputs=input)
+            # [1, 1], [1, 1], [10, 3, 2048], [10, 3, 2048], [1, 37, 1], [1, 37] test: bs=1
+            # [4, 1], [4, 1], [40, 3, 2048], [40, 3, 2048], [8, 32, 1], [8, 32] train: bs=4, T=32
+            logits = torch.squeeze(y_pred, 1)  # torch.Size([1, 37, 1])
+            breakpoint()
+            logits = torch.mean(logits, 0)  # torch.Size([37, 1])
             sig = logits
             pred = torch.cat((pred, sig))
+        
+        # pred: torch.Size([2322, 1])
+        
 
         # 加载 ground truth 标签文件
         if args.dataset == 'shanghai':
@@ -27,13 +33,11 @@ def test(dataloader, model, args, wandb, device):
             gt = np.load('list/gt-ucf.npy')
         elif args.dataset == 'drone_anomaly':
             gt = np.load('list/gt-da.npy')
+        # len(gt) = 37152
 
         # 将 pred 中的每个值重复 16 次
-        pred = list(pred.cpu().detach().numpy())
-        pred = np.repeat(np.array(pred), 16)
-        
-        # print(f"Length of gt: {len(gt)}")
-        # print(f"Length of pred: {len(pred)}")
+        pred = list(pred.cpu().detach().numpy())  # len=2322
+        pred = np.repeat(np.array(pred), 16)  # len=37152
 
         if len(gt) != len(pred):
             print(f"Error: gt and pred have different lengths: {len(gt)} vs {len(pred)}")
