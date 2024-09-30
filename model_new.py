@@ -175,10 +175,10 @@ class FeatureAggregator(nn.Module):
         '''
         new-b: 引入更多的卷积核和膨胀率
          现有模型只使用了三种膨胀率（dilation=1, 2, 4）进行卷积操作。可以进一步扩展这个多尺度卷积机制，比如引入不同大小的卷积核（如 kernel_size=1, 3, 5），或者再增加更多的膨胀率
-        self.conv_3_2 = nn.Conv1d(in_channels=2048, out_channels=512, kernel_size=5, dilation=8, padding=8) 通过引入更多的卷积核和膨胀率，可以捕捉到更多不同尺度的信息，提升模型的特征表达能力
+        self.conv_4 = nn.Conv1d(in_channels=2048, out_channels=512, kernel_size=5, dilation=8, padding=8) 通过引入更多的卷积核和膨胀率，可以捕捉到更多不同尺度的信息，提升模型的特征表达能力
         '''
-        # self.conv_3_2 = nn.Conv1d(in_channels=len_feature, out_channels=512, kernel_size=5, dilation=8, padding=8)
-        self.conv_3_2 = nn.Sequential(
+        # self.conv_4 = nn.Conv1d(in_channels=len_feature, out_channels=512, kernel_size=5, dilation=8, padding=8)
+        self.conv_4 = nn.Sequential(
             nn.Conv1d(in_channels=len_feature, out_channels=512, kernel_size=5, 
                         dilation=4, padding=8),
             nn.ReLU(),
@@ -187,7 +187,7 @@ class FeatureAggregator(nn.Module):
         )
 
         # 使用 1x1 卷积对特征进行进一步压缩 (D --> D/4)
-        self.conv_4 = nn.Sequential(
+        self.conv_5 = nn.Sequential(
             nn.Conv1d(in_channels=2048, out_channels=512, kernel_size=1,
                       stride=1, padding=0, bias = False), 
             nn.ReLU(),
@@ -195,7 +195,7 @@ class FeatureAggregator(nn.Module):
         )
         
         # 将所有特征融合在一起
-        self.conv_5 = nn.Sequential(
+        self.conv_6 = nn.Sequential(
             nn.Conv1d(in_channels=1024, out_channels=2048, kernel_size=3,  # new-a 1024; only new-b 2560; original 2048
                       stride=1, padding=1, bias=False), # should we keep the bias?
             nn.ReLU(),
@@ -221,43 +221,44 @@ class FeatureAggregator(nn.Module):
 
 
     def forward(self, x):
-            # x: (B, T, F), which means (bs, timestep, feature)
-            out = x.permute(0, 2, 1)  # 交换维度以适应卷积操作
+            # x: (B, T, F), (bs, n_segments, feature_dim), torch.Size([80, 32, 2048])
+            out = x.permute(0, 2, 1)  # 交换维度以适应卷积操作 torch.Size([80, 2048, 32])
             residual = out
 
             # 三层不同膨胀率的卷积 捕获不同范围的上下文信息
-            out1 = self.conv_1(out)  # [10, 512, 37]
-            out2 = self.conv_2(out)  # [10, 512, 37]
-            out3 = self.conv_3(out)  # [10, 512, 37]
+            out1 = self.conv_1(out)  # torch.Size([80, 512, 32])
+            out2 = self.conv_2(out)  # torch.Size([80, 512, 32])
+            out3 = self.conv_3(out)  # torch.Size([80, 512, 32])
             # out_d = torch.cat((out1, out2, out3), dim = 1)  # origin  [10, 1536, 37]
 
             # New-b: 引入更多的卷积核和膨胀率
-            out3_2 = self.conv_3_2(out) # [10, 512, 21]
-            # out_d = torch.cat((out1, out2, out3, out3_2), dim = 1)  # [10, 2048, 37]
+            out4 = self.conv_4(out) # torch.Size([80, 512, 32])
+            # out_d = torch.cat((out1, out2, out3, out4), dim = 1)  # [10, 2048, 37]
 
             # print(out1.shape, out2.shape, out3.shape, out_d0.shape)
-            # print(out3_2.shape, out_d.shape) 
+            # print(out4.shape, out_d.shape) 
 
             # New-a: 权重融合
-            out_d = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3 + self.weights[3] * out3_2  # [10, 512, 37]
+            out_d = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3 + self.weights[3] * out4  # torch.Size([80, 512, 32])
+            breakpoint()
 
             # 1x1卷积和Non-Local操作
-            out = self.conv_4(out)  # 使用 1x1 卷积对特征进行进一步压缩 [10, 512, 37]  (D --> D/4)
+            out = self.conv_5(out)  # 使用 1x1 卷积对特征进行进一步压缩 torch.Size([80, 512, 32])  (D --> D/4)
             # print(out.shape) 
-            out = self.non_local(out)  # 引入 Non-Local Block 来捕获长距离依赖 [10, 512, 37]
+            out = self.non_local(out)  # 引入 Non-Local Block 来捕获长距离依赖 torch.Size([80, 512, 32])
             # print(out.shape) 
-            out = torch.cat((out_d, out), dim=1)  # only new-b: [10, 2560, 37]; new-a: [10, 1024, 37]
+            out = torch.cat((out_d, out), dim=1)  # only new-b: [80, 2560, 32]; new-a: torch.Size([80, 1024, 32])
             # print(out.shape)
 
-            out = self.conv_5(out)   # fuse all the features together
+            out = self.conv_6(out)   # fuse all the features together, torch.Size([80, 2048, 32])
 
             # New-c
-            out = self.bottleneck(out)
+            out = self.bottleneck(out)  # torch.Size([80, 2048, 32])
 
             # 残差连接：输出与输入相加，形成残差连接，保留原始特征的部分信息
-            out = out + residual
-            out = out.permute(0, 2, 1)  
-            # out: (B, T, 1)
+            out = out + residual   # torch.Size([80, 2048, 32])
+            out = out.permute(0, 2, 1)  # torch.Size([80, 32, 2048])
+            # out: (B, T, F)
 
             return out
 
