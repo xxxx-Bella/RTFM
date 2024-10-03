@@ -84,28 +84,28 @@ class _NonLocalBlockND(nn.Module):
         :param return_nl_map: if True return z, nl_map, else only return z.
         :return:
         """
-
+        # x.shape = torch.Size([80, 512, 32]) (bs*n_crops, feature_dim/4, n_segments)
         batch_size = x.size(0)
 
         # 将输入通道数缩减到 inter_channels，并可能进行下采样
-        g_x = self.g(x).view(batch_size, self.inter_channels, -1)
-        g_x = g_x.permute(0, 2, 1)
+        g_x = self.g(x).view(batch_size, self.inter_channels, -1)  # torch.Size([80, 256, 32])
+        g_x = g_x.permute(0, 2, 1)  # torch.Size([80, 32, 256])
 
         # 提取非局部信息
-        theta_x = self.theta(x).view(batch_size, self.inter_channels, -1)
-        theta_x = theta_x.permute(0, 2, 1)
-        phi_x = self.phi(x).view(batch_size, self.inter_channels, -1)
+        theta_x = self.theta(x).view(batch_size, self.inter_channels, -1)  # conv_nd torch.Size([80, 256, 32])
+        theta_x = theta_x.permute(0, 2, 1)  # for matmul torch.Size([80, 32, 256])
+        phi_x = self.phi(x).view(batch_size, self.inter_channels, -1)  # conv_nd torch.Size([80, 256, 32])
 
         # 非局部操作
-        f = torch.matmul(theta_x, phi_x)  # 矩阵乘法, 计算特征间的相似性
-        N = f.size(-1)
-        f_div_C = f / N
+        f = torch.matmul(theta_x, phi_x)  # 矩阵乘法, 计算特征间的相似性 torch.Size([80, 32, 32])
+        N = f.size(-1)  # 32
+        f_div_C = f / N  # torch.Size([80, 32, 32])
 
-        y = torch.matmul(f_div_C, g_x)
-        y = y.permute(0, 2, 1).contiguous()
-        y = y.view(batch_size, self.inter_channels, *x.size()[2:])
-        W_y = self.W(y)  # W 输出通道数恢复到 in_channels
-        z = W_y + x
+        y = torch.matmul(f_div_C, g_x) # Eq.1 in paper "Non-local Neural Networks" torch.Size([80, 32, 256])
+        y = y.permute(0, 2, 1).contiguous()  # torch.Size([80, 256, 32])
+        y = y.view(batch_size, self.inter_channels, *x.size()[2:])  # torch.Size([80, 256, 32])
+        W_y = self.W(y)  # W 输出通道数恢复到 in_channels  torch.Size([80, 512, 32])
+        z = W_y + x  # torch.Size([80, 512, 32])
 
         if return_nl_map:
             return z, f_div_C
@@ -196,7 +196,7 @@ class FeatureAggregator(nn.Module):
         
         # 将所有特征融合在一起
         self.conv_6 = nn.Sequential(
-            nn.Conv1d(in_channels=1024, out_channels=2048, kernel_size=3,  # new-a 1024; only new-b 2560; original 2048
+            nn.Conv1d(in_channels=1024, out_channels=2048, kernel_size=3, # new-a 1024; only new-b 2560; original 2048
                       stride=1, padding=1, bias=False), # should we keep the bias?
             nn.ReLU(),
             nn.BatchNorm1d(2048),
@@ -221,12 +221,12 @@ class FeatureAggregator(nn.Module):
 
 
     def forward(self, x):
-            # x: (B, T, F), (bs, n_segments, feature_dim), torch.Size([80, 32, 2048])
+            # x: (bs*n_crops, n_segments, feature_dim), torch.Size([80, 32, 2048]) (T, D)
             out = x.permute(0, 2, 1)  # 交换维度以适应卷积操作 torch.Size([80, 2048, 32])
             residual = out
 
             # 三层不同膨胀率的卷积 捕获不同范围的上下文信息
-            out1 = self.conv_1(out)  # torch.Size([80, 512, 32])
+            out1 = self.conv_1(out)  # torch.Size([80, 512, 32])  (D/4, T)
             out2 = self.conv_2(out)  # torch.Size([80, 512, 32])
             out3 = self.conv_3(out)  # torch.Size([80, 512, 32])
             # out_d = torch.cat((out1, out2, out3), dim = 1)  # origin  [10, 1536, 37]
@@ -240,17 +240,18 @@ class FeatureAggregator(nn.Module):
 
             # New-a: 权重融合
             out_d = self.weights[0] * out1 + self.weights[1] * out2 + self.weights[2] * out3 + self.weights[3] * out4  # torch.Size([80, 512, 32])
-            breakpoint()
+            # breakpoint()
 
-            # 1x1卷积和Non-Local操作
-            out = self.conv_5(out)  # 使用 1x1 卷积对特征进行进一步压缩 torch.Size([80, 512, 32])  (D --> D/4)
+            # 1x1卷积
+            out = self.conv_5(out)  # 使用 1x1 卷积对特征进行进一步压缩 torch.Size([80, 512, 32])  (D/4, T)
             # print(out.shape) 
+            # Non-Local操作
             out = self.non_local(out)  # 引入 Non-Local Block 来捕获长距离依赖 torch.Size([80, 512, 32])
             # print(out.shape) 
             out = torch.cat((out_d, out), dim=1)  # only new-b: [80, 2560, 32]; new-a: torch.Size([80, 1024, 32])
-            # print(out.shape)
+            # print(out.shape) (D/2, T)
 
-            out = self.conv_6(out)   # fuse all the features together, torch.Size([80, 2048, 32])
+            out = self.conv_6(out)   # fuse all the features together, torch.Size([80, 2048, 32])  (D, T)
 
             # New-c
             out = self.bottleneck(out)  # torch.Size([80, 2048, 32])
@@ -258,7 +259,6 @@ class FeatureAggregator(nn.Module):
             # 残差连接：输出与输入相加，形成残差连接，保留原始特征的部分信息
             out = out + residual   # torch.Size([80, 2048, 32])
             out = out.permute(0, 2, 1)  # torch.Size([80, 32, 2048])
-            # out: (B, T, F)
 
             return out
 
@@ -324,12 +324,10 @@ class Model(nn.Module):
 
         # in Eq.2, ||x_t||2
         feat_magnitudes = torch.norm(features, p=2, dim=2)  # 计算特征的 L2 范数, 衡量每个特征的大小。对于每个特征向量（每个时间步的特征），计算其 L2 范数 --> (bs*n_crops, n_segments)  torch.Size([80, 32])
-        # breakpoint()
-
+        feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).mean(1)  # torch.Size([8, 32])
         # 对每个视频的多个 crop 计算特征大小的均值/方差，得到每个时间步上最终的特征大小
         # view(, -1): torch.Size([8, 10, 32])  (bs, n_crops, n_segments); 
         # mean(1): 对 n_crops 维度的均值计算，合并所有 crop 的特征大小 (bs, n_segments)
-        feat_magnitudes = feat_magnitudes.view(bs, ncrops, -1).mean(1)  # torch.Size([8, 32])
         
 
         # New-var: 根据特征的方差来衡量多个 crop 之间的特征波动程度
