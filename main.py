@@ -11,6 +11,7 @@ from tqdm import tqdm  # 方便地显示循环进度条
 # from utils import Visualizer
 from config import *
 import wandb
+from datetime import datetime
 
 
 if __name__ == '__main__':
@@ -73,9 +74,10 @@ if __name__ == '__main__':
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)  # T_max是周期的步长
 
     # train & test
-    test_info = {"epoch": [], "test_AUC": []}
+    test_info = {"epoch": [], "test_AUC": [], "test_AP": []}
     best_AUC = -1
-    output_path = log_dir   # put your own path here
+    best_AP = -1
+    # output_path = log_dir   # put your own path here
     # print('auc = test(test_loader, model,..)')
     # auc = test(test_loader, model, args, wandb, device)  # what for? deleted
 
@@ -106,16 +108,34 @@ if __name__ == '__main__':
         if epoch % 5 == 0 and epoch > 100:
             print('Testing ...')
             # print('loss:', loss.item())
-            print('auc = test(test_loader, model,..)')
-            auc = test(test_loader, model, args, wandb, device)
+            # print('auc = test(test_loader, model,..)')
+            auc, ap = test(test_loader, model, args, wandb, device)
             test_info["epoch"].append(epoch)
             test_info["test_AUC"].append(auc)
+            test_info["test_AP"].append(ap)
 
-            wandb.log({"epoch": epoch, "test_AUC": auc})
+            # wandb.log({"epoch": epoch, "test_AUC": auc})
 
             if test_info["test_AUC"][-1] > best_AUC:
                 best_AUC = test_info["test_AUC"][-1]
                 # torch.save(model.state_dict(), './ckpt/' + args.model_name + f'{epoch}-i3d.pkl')
-                save_best_record(test_info, os.path.join(output_path, log_dir, f'{args.run_name}.txt'))
-                wandb.log({"epoch": test_info["epoch"], "best_AUC": test_info["test_AUC"]})
+                save_best_record(test_info, os.path.join(log_dir, f'{args.run_name}.txt'), 'auc')
+                wandb.log({"epoch": test_info["epoch"], 
+                            "best_AUC": test_info["test_AUC"]
+                })
+            
+            if test_info["test_AP"][-1] > best_AP:
+                best_AP = test_info["test_AP"][-1]
+                save_best_record(test_info, os.path.join(log_dir, f'{args.run_name}.txt'), 'ap')
+                wandb.log({"epoch": test_info["epoch"], 
+                            "best_AP": test_info["test_AP"]
+                })
+        if epoch == 1:
+            start_time = datetime.now()
+            save_best_record(start_time, os.path.join(log_dir, f'{args.run_name}.txt'), 'time')
+        if epoch == args.max_epoch:
+            end_time = datetime.now()
+            save_best_record(end_time, os.path.join(log_dir, f'{args.run_name}.txt'), 'time')
+
+
     torch.save(model.state_dict(), './ckpt/' + f'{args.run_name}-final.pkl')

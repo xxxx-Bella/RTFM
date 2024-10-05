@@ -50,7 +50,7 @@ cd /home/featurize/work/yuxin/WVAD/RTFM && conda create -n "rftm" python=3.9 && 
 # conda info --envs
 
 # python -m visdom.server
-python main.py --run-name x-try --max-epoch 1000 
+python main.py --run-name x-dual-mean-m5 --max-epoch 7000 
 
 93d9cb47ca8e71ecdf675438033ea06ebc9cfd9c
 ```

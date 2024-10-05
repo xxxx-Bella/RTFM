@@ -290,8 +290,8 @@ class Model(nn.Module):
         torch.Size([8, 10, 32, 2048]), or torch.Size([1, 10, 18, 2048])
         n_crops: each video, per n_segments step, has n_crops crop versions. ("look at" the input from different angles)
         '''
-        print('Calling Model.forward()...')
-        print(f"inputs: {inputs.shape}")
+        # print('Calling Model.forward()...')
+        # print(f"inputs: {inputs.shape}")
         # anchors = [bn.running_mean for bn in self.normal_head.bns]  # Mean Vector of BatchNorm
         # # anchors[0].shape = torch.Size([32]), anchors[1].shape = torch.Size([16]) 
 

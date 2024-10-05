@@ -76,10 +76,17 @@ def modelsize(model, input, type_size=4):
 #     fo.write(str(test_info["test_AUC"][-1]))
 #     fo.close()
 
-def save_best_record(test_info, file_path):
+def save_best_record(content, file_path, type):
     with open(file_path, "a") as fo:  # 使用 "a" 模式打开文件，表示追加写入
-        fo.write(f"epoch: {test_info['epoch'][-1]}\n")  # 写入最新 epoch
-        fo.write(f"test_AUC: {test_info['test_AUC'][-1]}\n")  # 写入最新 AUC
+        if type == 'auc':
+            fo.write(f"epoch: {content['epoch'][-1]}\n")  # 写入最新 epoch
+            fo.write(f"test_AUC: {content['test_AUC'][-1]}\n")  # 写入最新 AUC
+        elif type == 'ap':
+            fo.write(f"epoch: {content['epoch'][-1]}\n")  # 写入最新 epoch
+            fo.write(f"test_AP: {content['test_AP'][-1]}\n")  # 写入最新 AUC
+        elif type == 'time':
+            fo.write(f"current_time: {content}\n") 
+
         fo.write("\n")  # 换行，方便下次记录
 
 

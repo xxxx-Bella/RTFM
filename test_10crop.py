@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import torch
-from sklearn.metrics import roc_curve, auc, precision_recall_curve, f1_score, accuracy_score
+from sklearn.metrics import roc_curve, auc, precision_recall_curve, f1_score, accuracy_score, average_precision_score
 import numpy as np
 import wandb 
 
@@ -18,7 +18,7 @@ def test(dataloader, model, args, wandb, device):
             # [1, 1], [1, 1], [10, 3, 2048], [10, 3, 2048], [1, 37, 1], [1, 37] test: bs=1
             # [4, 1], [4, 1], [40, 3, 2048], [40, 3, 2048], [8, 32, 1], [8, 32] train: bs=4, T=32
             logits = torch.squeeze(y_pred, 1)  # torch.Size([1, 37, 1])
-            breakpoint()
+            # breakpoint()
             logits = torch.mean(logits, 0)  # torch.Size([37, 1])
             sig = logits
             pred = torch.cat((pred, sig))
@@ -49,14 +49,16 @@ def test(dataloader, model, args, wandb, device):
         np.save(f'log/run-{args.run_name}/tpr.npy', tpr)
         rec_auc = auc(fpr, tpr)
 
-        print('auc : ' + str(rec_auc))
-
-        # Precision, Recall, AP
+        # Precision, Recall
         precision, recall, th = precision_recall_curve(list(gt), pred)
         pr_auc = auc(recall, precision)  # AP?
         np.save(f'log/run-{args.run_name}/precision.npy', precision)
         np.save(f'log/run-{args.run_name}/recall.npy', recall)
-        
+
+        # AP
+        average_precision = average_precision_score(list(gt), pred)
+        print(f'auc : {str(rec_auc)}, AP : {str(average_precision)}')
+
         # # F1-score
         # pred_labels = [1 if p >= 0.5 else 0 for p in pred] 
         # f1 = f1_score(gt, pred_labels)
@@ -71,8 +73,9 @@ def test(dataloader, model, args, wandb, device):
         # vis.lines('scores', pred)
         # vis.lines('roc', tpr, fpr)
         wandb.log({
-            "pr_auc": pr_auc,
+            # "pr_auc": pr_auc,
             "auc": rec_auc,
+            "AP" : average_precision,
             "scores": pred,
             'roc': wandb.plot.line_series(
                 xs=fpr,  
@@ -82,4 +85,4 @@ def test(dataloader, model, args, wandb, device):
                 xname="FPR" 
             )})
 
-        return rec_auc
+        return rec_auc, average_precision
