@@ -26,3 +26,10 @@ parser.add_argument('--run-name', type=str, default='this-run', help='run name')
 # anchors
 parser.add_argument('--ratios', type=int, nargs='+', default = [16, 32])
 parser.add_argument('--kernel_sizes', type=int, nargs='+', default = [1, 1, 1])
+
+parser.add_argument('--scene', type=str, default='all', choices = ['all', 'Bike_Roundabout', 'Crossroads', 'Farmland_Inspection', 'Highway', 'Railway_Inspection', 'Solar_Panel_Inspection', 'Vehicle_Roundabout'])
+parser.add_argument('--smooth', type=bool, default=True, help = 'for visualization')
+parser.add_argument('--window_size', type=int, default=5, help = 'for visualization')
+
+
+

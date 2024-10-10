@@ -51,7 +51,7 @@ class RTFM_loss(torch.nn.Module):
     def __init__(self, alpha, margin):
         super(RTFM_loss, self).__init__()
         self.alpha = alpha
-        self.margin = margin
+        self.margin = margin  # 100
         self.sigmoid = torch.nn.Sigmoid()
         self.mae_criterion = SigmoidMAELoss()
         self.criterion = torch.nn.BCELoss()
@@ -66,8 +66,10 @@ class RTFM_loss(torch.nn.Module):
 
         label = label.cuda()
 
+        # (Eq.1) l_f
         loss_cls = self.criterion(score, label)  # BCE loss in the score space
 
+        # (Eq.1) l_s
         loss_abn = torch.abs(self.margin - torch.norm(torch.mean(feat_a, dim=1), p=2, dim=1))
 
         loss_nor = torch.norm(torch.mean(feat_n, dim=1), p=2, dim=1)
@@ -79,7 +81,7 @@ class RTFM_loss(torch.nn.Module):
         return loss_total
 
 
-def train(nloader, aloader, model, batch_size, optimizer, viz, device):
+def train(nloader, aloader, model, batch_size, optimizer, wandb, device, log_dir, epoch, args):
     with torch.set_grad_enabled(True):
         model.train()
 
@@ -88,8 +90,7 @@ def train(nloader, aloader, model, batch_size, optimizer, viz, device):
 
         input = torch.cat((ninput, ainput), 0).to(device)
 
-        score_abnormal, score_normal, feat_select_abn, feat_select_normal, feat_abn_bottom, \
-        feat_normal_bottom, scores, scores_nor_bottom, scores_nor_abn_bag, _ = model(input)  # b*32  x 2048
+        score_abnormal, score_normal, feat_select_abn, feat_select_normal, scores, _ = model(input)  # b*32  x 2048
 
         scores = scores.view(batch_size * 32 * 2, -1)
 
@@ -104,11 +105,15 @@ def train(nloader, aloader, model, batch_size, optimizer, viz, device):
         loss_smooth = smooth(abn_scores, 8e-4)
         cost = loss_criterion(score_normal, score_abnormal, nlabel, alabel, feat_select_normal, feat_select_abn) + loss_smooth + loss_sparse
 
-        viz.plot_lines('loss', cost.item())
-        viz.plot_lines('smooth loss', loss_smooth.item())
-        viz.plot_lines('sparsity loss', loss_sparse.item())
+        # viz.plot_lines('loss', cost.item())
+        # viz.plot_lines('smooth loss', loss_smooth.item())
+        # viz.plot_lines('sparsity loss', loss_sparse.item())
+        wandb.log({
+            "loss": cost.item(),
+            "smooth loss": loss_smooth.item(),
+            "sparsity loss": loss_sparse.item()
+        })
+
         optimizer.zero_grad()
         cost.backward()
         optimizer.step()
-
-

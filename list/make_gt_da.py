@@ -14,7 +14,10 @@ For Drone Anomaly.
 rgb_list_file ='list/DA-i3d-test.list'
 file_list = [file.strip() for file in open(rgb_list_file)]  # 每一行是一个 I3D 特征文件的路径, 去除换行符
 # gt（frame-level label）root path (for load abnormal gt)
-gt_root = '/home/featurize/work/yuxin/WVAD/I3D/output/drone_anomaly/'  
+gt_root = '/home/featurize/work/yuxin/WVAD/I3D/output/drone_anomaly/'
+
+scene = 'all'
+# ['all', 'Bike_Roundabout', 'Crossroads', 'Farmland_Inspection', 'Highway', 'Railway_Inspection', 'Solar_Panel_Inspection', 'Vehicle_Roundabout']
 
 # all_files = os.listdir(gt_root)  # 获取 gt_root 目录下的所有文件名
 # gt_files = [] # all anomaly_gt file in test
@@ -27,31 +30,33 @@ gt_root = '/home/featurize/work/yuxin/WVAD/I3D/output/drone_anomaly/'
 #         if any(prefix in file for file in file_list):
 #             gt_files.append(file_name)
 
-# print("test gt files: ", gt_files)
-# print("-----------------")
-
 num_frame = 0
 gt = []
 total = 0
 abnormal_count =0
 wrong_num = []
-wrong_num_path = f'list/wrong_num.list'
+wrong_num_path = f'list/wrong_num2.list'
+
+if scene != 'all':
+    file_list = [file for file in file_list if scene in file]
+
+print(file_list, len(file_list))
+breakpoint()
 
 # 将每个 video 的 label 合成一个 gt
-for  file in file_list:
-    # load each npy (I3D feature) in rgb_list_file
+for file in file_list:
+    # Load each npy (I3D feature) in rgb_list_file
     features = np.load(file, allow_pickle=True)
 
-    # features = [t.cpu().detach().numpy() for t in features]
     features = np.array(features, dtype=np.float32)
-    print(f"features.shape: {features.shape}")
+    # print(f"features.shape: {features.shape}")
     if features.shape[1] == 1:
         features = np.squeeze(features, axis=1)
     # else:
     #     print(f"Skipping squeeze as axis 1 has size {features.shape[1]}")
 
     num_frame = features.shape[0] * 16  # 计算该视频的帧数 (视频的片段数量 * i3d_frequency)
-    print(f'num_frame:{num_frame}')
+    # print(f'num_frame:{num_frame}')
     count = 0
 
     # normal video: gt is (0*num_frame)
@@ -97,13 +102,17 @@ for  file in file_list:
     total += count # 统计所有test视频的 ground truth 标签数
 
 print()
-print('all gt in DA-test:', total)
-print('abnormal video in DA-test:', abnormal_count)
+print(f'gt in {scene} DA-test:', total)
+print(f'abnormal video in {scene} DA-test:', abnormal_count)
 with open(wrong_num_path, 'w') as f:
     for one in wrong_num:
         f.write(str(one) + '\n')
 
-
+# breakpoint()
 gt_array = np.array(gt)
-np.save('list/gt-da.npy', gt_array)  # test frame-level label
-# # loaded_gt = np.load('gt-sh.npy')
+if scene == 'all':
+    np.save('list/gt-da.npy', gt_array)  # test frame-level label
+    # loaded_gt = np.load('gt-sh.npy')
+else:
+    np.save(f'list/gt-da-{scene}.npy', gt_array) 
+

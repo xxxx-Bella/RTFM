@@ -292,5 +292,5 @@ class Model(nn.Module):
         feat_select_abn = total_select_abn_feature
         feat_select_normal = total_select_nor_feature
 
-        return score_abnormal, score_normal, feat_select_abn, feat_select_normal, feat_select_abn, feat_select_abn, scores, feat_select_abn, feat_select_abn, feat_magnitudes
-        # return score_abnormal, score_normal, feat_select_abn, feat_select_normal, scores, feat_magnitudes
+        # return score_abnormal, score_normal, feat_select_abn, feat_select_normal, feat_select_abn, feat_select_abn, scores, feat_select_abn, feat_select_abn, feat_magnitudes
+        return score_abnormal, score_normal, feat_select_abn, feat_select_normal, scores, feat_magnitudes

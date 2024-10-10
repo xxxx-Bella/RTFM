@@ -15,8 +15,7 @@ def weight_init(m):
 
 '''
 new?: 
-非局部块的计算复杂度较高，尤其是对于长时间序列。可以考虑使用更轻量级的注意力机制，如Self-Attention或Transformer替代，减少计算量;
-如果模型的数据特征在时间或空间维度上局部相关性较强，可以尝试局部注意力机制，减少全局范围的计算负担
+非局部块的计算复杂度较高，尤其是对于长时间序列。可以考虑使用更轻量级的注意力机制，如Self-Attention或Transformer替代，减少计算量;如果模型的数据特征在时间或空间维度上局部相关性较强，可以尝试局部注意力机制，减少全局范围的计算负担
 '''
 class _NonLocalBlockND(nn.Module):
     '''通用的 Non-Local Block 模块，适用于 1D, 2D 或 3D 数据. Non-local Neural Networks

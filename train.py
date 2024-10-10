@@ -5,25 +5,7 @@ import torch.nn.functional as F
 torch.set_default_tensor_type('torch.FloatTensor')
 from torch.nn import L1Loss
 from torch.nn import MSELoss
-import matplotlib.pyplot as plt
-import os
-import seaborn as sns
-
-# # new_ls1
-# class TripletLoss(nn.Module):
-#     def __init__(self, margin=1.0):
-#         super(TripletLoss, self).__init__()
-#         self.margin = margin
-
-#     def forward(self, anchor, positive, negative):
-#         pos_dist = torch.norm(anchor - positive, p=2, dim=1)  # Anchor 和 Positive 的距离
-#         neg_dist = torch.norm(anchor - negative, p=2, dim=1)  # Anchor 和 Negative 的距离
-        
-#         # Triplet Loss：使正样本距离最小化，负样本距离最大化
-#         loss = F.relu(pos_dist - neg_dist + self.margin)
-#         return loss.mean()
-
-
+from utils import draw_distribution
 
 
 def sparsity(arr, batch_size, lamda2):
@@ -66,46 +48,6 @@ class SigmoidCrossEntropyLoss(torch.nn.Module):
         return torch.abs(torch.mean(- x * target + torch.clamp(x, min=0) + torch.log(tmp)))
 
 
-def draw_distribution(feat_n, feat_a, log_dir,epoch):
-    # feat_a = torch.Size([40, 3, 2048])  # 异常特征
-    # feat_n = torch.Size([40, 3, 2048])  # 正常特征
-
-    # 1. 对 top-k 维度 (dim=1) 取平均，获得 [40, 2048] 的张量
-    feat_a_mean = torch.mean(feat_a, dim=2)  # Shape: [40, 3]
-    feat_n_mean = torch.mean(feat_n, dim=2)  # Shape: [40, 3]
-    # feat_a_mean = torch.mean(feat_a, dim=1)  # Shape: [40, 2048]
-    # feat_n_mean = torch.mean(feat_n, dim=1)  # Shape: [40, 2048]
-
-    # 2. 转为 numpy 数组，方便绘图
-    feat_a_np = feat_a_mean.cpu().detach().numpy()  # Shape: [40, 2048]
-    feat_n_np = feat_n_mean.cpu().detach().numpy()  # Shape: [40, 2048]
-
-    # 3. 选择一些特征维度进行可视化，比如第 0 个和第 1 个维度
-    feature_dim = [0, 1]  # 你可以选择多个维度进行绘制
-
-    for dim in feature_dim:
-        plt.figure(figsize=(8, 6))
-
-        # 绘制异常样本的特征分布
-        plt.hist(feat_a_np[:, dim], bins=30, alpha=0.5, label='Abnormal Feature', color='red', density=True)
-        # 绘制正常样本的特征分布
-        plt.hist(feat_n_np[:, dim], bins=30, alpha=0.5, label='Normal Feature', color='blue', density=True)
-        
-        # 使用Seaborn绘制异常样本的密度曲线
-        sns.kdeplot(feat_a_np[:, dim], color='red', label='Abnormal Density', linewidth=2)
-        # 使用Seaborn绘制正常样本的密度曲线
-        sns.kdeplot(feat_n_np[:, dim], color='blue', label='Normal Density', linewidth=2)
-
-        plt.title(f'Feature Distribution')
-        plt.xlabel('Feature Value')  # 特征值：异常样本在特定维度上的特征值
-        plt.ylabel('Density')  # 概率密度：特征值在各个区间上的概率密度，表示该维度上特征值出现的相对频率
-        plt.legend()
-
-        # dimension = 'bs*ncrops' if dim == 0 else 'feat-dim'
-        output_path = os.path.join(log_dir, f'epoch{epoch}-dim{dim}.png')
-        plt.savefig(output_path)
-        plt.close()
-
 
 class My_loss(torch.nn.Module):
     def __init__(self, alpha, beta, lambda1, lambda2, margin):
@@ -114,7 +56,7 @@ class My_loss(torch.nn.Module):
         self.beta = beta
         self.lambda1 = lambda1
         self.lambda2 = lambda2
-        self.margin = margin  # m = 100
+        self.margin = margin  # 3
         self.sigmoid = torch.nn.Sigmoid()
         self.mae_criterion = SigmoidMAELoss()
         self.criterion = torch.nn.BCELoss()
@@ -140,7 +82,7 @@ class My_loss(torch.nn.Module):
         # (Eq.1) l_s
         mean_abn = torch.mean(feat_a, dim=1)
         feat_a_l2 = torch.norm(mean_abn, p=2, dim=1)  # 每个异常样本的L2范数 
-        loss_abn = torch.abs(self.margin - feat_a_l2)  # 控制异常特征大小，使与 m 接近 ([40])
+        loss_abn = torch.abs(100 - feat_a_l2)  # 控制异常特征大小，使与 m 接近 ([40]) (self.margin=100)
         loss_nor = torch.norm(torch.mean(feat_n, dim=1), p=2, dim=1)  # torch.Size([40])
         l_s = torch.mean((loss_abn + loss_nor) ** 2)  # float
 
@@ -165,28 +107,24 @@ class My_loss(torch.nn.Module):
 
         # mean_diff = torch.mean(torch.abs(mean_abn - mean_nor))  
         # mean_loss = 1 - mean_diff  # Maximize mean difference 
-        m = 3
+        # m = 3
         mean_diff = torch.norm(mean_abn - mean_nor, p=2, dim=1)  # l2 norm, dim 1, torch.Size([40]) 均值差异涉及所有特征维度的整体差异，用 L2 范数（torch.norm）可以更好地衡量总体差异。这样能得到每个样本的整体均值差异，而不仅是单个特征维度的差异
         # mean_loss = torch.mean(mean_diff)  # 最大化 正常和异常视频均值的 差异
-        mean_loss = torch.mean(torch.clamp(m - mean_diff, min=0))
+        mean_loss = torch.mean(torch.clamp(self.margin - mean_diff, min=0))
         # print(f'variance_abn = {variance_abn}, variance_nor = {variance_nor}')
         # print(f'mean_abn = {mean_abn}, mean_nor = {mean_nor}')
-        print(f'mean_diff = {mean_diff}')
-        print(f'mean_loss = {mean_loss}, variance_loss = {variance_loss}') 
-        # print(f'variance_loss_2 = {variance_loss_2}')
+        # print(f'mean_diff = {mean_diff}')
+        # print(f'mean_loss = {mean_loss}, variance_loss = {variance_loss}') 
         # breakpoint()
 
         loss_dual = self.alpha * mean_loss + self.beta * variance_loss
         # loss_dual = 0.5 * mean_loss + 0.5 * variance_loss
-        # loss_dual_2 = mean_loss + self.alpha * variance_loss_2
 
         # new-total-loss
         loss_total = self.lambda1 * loss_cls + self.lambda2 * loss_dual
-        # loss_total = loss_cls + 0.5 * loss_dual
 
-        print(f'loss_cls = {loss_cls}, loss_dual = {loss_dual}')
+        # print(f'loss_cls = {loss_cls}, loss_dual = {loss_dual}')
         
-        # print()
         # loss_total = loss_cls + self.alpha * l_s  # original (Eq.1)
 
 
@@ -212,9 +150,8 @@ def train(nloader, aloader, model, batch_size, optimizer, scheduler, wandb, devi
         # [4, 1], [4, 1], [40, 3, 2048], [40, 3, 2048], [8, 32, 1], [8, 32] train: bs=4, T=32
         # [1, 1], [1, 1], [10, 3, 2048], [10, 3, 2048], [1, 37, 1], [1, 37] test: bs=1
 
-        if epoch % 200 == 0: # and epoch > 99:
-            draw_distribution(feat_select_normal, feat_select_abn, log_dir, epoch)
-            # breakpoint()
+        # if epoch % 500 == 0 and epoch > 199:
+        #     draw_distribution(feat_select_normal, feat_select_abn, log_dir, epoch)
 
         y_pred = y_pred.view(batch_size * 32 * 2, -1)
         y_pred = y_pred.squeeze()  # 
@@ -229,11 +166,13 @@ def train(nloader, aloader, model, batch_size, optimizer, scheduler, wandb, devi
         loss_smooth = smooth(abn_y_pred, 8e-4)
 
         # alpha = 0.0001  # l_s = around 15000
-        alpha = 1  # var_mean
-        beta = 1  # var_loss
-        lambda1, lambda2 = 1, 0.5  # loss_cls, loss_dd
+        alpha = 1   # loss_mean
+        beta = 1    # loss_var
+        margin = 3  # loss_mean
+        # lambda1, lambda2 = 1, 0.5  # loss_cls, loss_dd (all scenes except bike)
+        lambda1, lambda2 = 1, 1  # loss_cls, loss_dd (bike)
         lambda3, lambda4 = 0.1, 0.1  # loss_smooth, loss_sparse
-        my_loss_fn = My_loss(alpha, beta, lambda1, lambda2, 100)
+        my_loss_fn = My_loss(alpha, beta, lambda1, lambda2, margin)
         loss_my = my_loss_fn(y_pred_normal, y_pred_abnormal, nlabel, alabel, feat_select_normal, feat_select_abn)
         # loss_cls, loss_s = my_loss_fn(y_pred_normal, y_pred_abnormal, nlabel, alabel, feat_select_normal, feat_select_abn)
 

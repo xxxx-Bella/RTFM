@@ -46,16 +46,29 @@ The following files need to be adapted in order to run the code on your own mach
 After the setup, simply run the following commands: 
 
 ```shell
-cd /home/featurize/work/yuxin/WVAD/RTFM && conda create -n "rftm" python=3.9 && conda activate rftm && pip install torch matplotlib scikit-learn tqdm wandb seaborn
+cd /home/featurize/work/yuxin/WVAD/RTFM && conda create -n "rtfm" python=3.9 && conda activate rtfm && pip install torch matplotlib scikit-learn tqdm wandb seaborn
+cd /home/featurize/work/yuxin/WVAD/RTFM && conda activate rtfm
 # conda info --envs
 
 # python -m visdom.server
-python main.py --run-name x-dual-mean-m5 --max-epoch 7000 
+python main_0.py --run-name rtfm --max-epoch 5000 --batch-size 4 --scene all
+
+python main.py --run-name x-scene-all-2 --max-epoch 15000 --batch-size 4 --scene all
+python main.py --run-name x-scene-bike --max-epoch 7000 --batch-size 4 --scene Bike_Roundabout
+python main.py --run-name x-scene-cross-2 --max-epoch 5000 --batch-size 1 --scene Crossroads
+python main.py --run-name x-scene-farm-2 --max-epoch 3000 --batch-size 1 --scene Farmland_Inspection
+python main.py --run-name x-scene-highway-2 --max-epoch 3000 --batch-size 1 --scene Highway
+python main.py --run-name x-scene-railway-2 --max-epoch 3000 --batch-size 1 --scene Railway_Inspection
+python main.py --run-name x-scene-solar --max-epoch 3000 --batch-size 1 --scene Solar_Panel_Inspection
+python main.py --run-name x-scene-vehicle-2 --max-epoch 3000 --batch-size 1 --scene Vehicle_Roundabout
+
+# ['all', 'Bike_Roundabout', 'Crossroads', 'Farmland_Inspection', 'Highway', 'Railway_Inspection', 'Solar_Panel_Inspection', 'Vehicle_Roundabout']
 
 93d9cb47ca8e71ecdf675438033ea06ebc9cfd9c
 ```
 # Git Commit/Push
     git config --global user.email "hyx18390659623@163.com" && git config --global user.name "xxxx-Bella"
+
     # sudo chmod 777 /home/featurize/work/MyPaper/
     git commit -m ""
     git push origin main

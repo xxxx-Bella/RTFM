@@ -7,10 +7,12 @@ torch.set_default_tensor_type('torch.FloatTensor')
 
 
 class Dataset(data.Dataset):
-    def __init__(self, args, is_normal=True, transform=None, test_mode=False):
+    def __init__(self, args, is_normal=True, transform=None, test_mode=False, scene='all'):
         self.modality = args.modality
         self.is_normal = is_normal
         self.dataset = args.dataset
+        self.scene = args.scene
+
         if self.dataset == 'shanghai':
             if test_mode:
                 self.rgb_list_file = 'list/shanghai-i3d-test-10crop.list'
@@ -37,8 +39,7 @@ class Dataset(data.Dataset):
 
     def _parse_list(self):
         self.list = list(open(self.rgb_list_file))
-        # train 
-        if self.test_mode is False: 
+        if self.test_mode is False:  # train mode 
             print("Loading training dateset...")
 
             if self.dataset == 'shanghai':
@@ -62,10 +63,14 @@ class Dataset(data.Dataset):
                     print(self.list)
             
             elif self.dataset == 'drone_anomaly':
-                index_n = [i for i, item in enumerate(self.list) if 'label_0' in item]
-                index_a = [i for i, item in enumerate(self.list) if 'label_1' in item]
+                if self.scene == 'all':
+                    index_n = [i for i, item in enumerate(self.list) if 'label_0' in item]
+                    index_a = [i for i, item in enumerate(self.list) if 'label_1' in item]
+                else:
+                    index_n = [i for i, item in enumerate(self.list) if ('label_0' in item and self.scene in item)]
+                    index_a = [i for i, item in enumerate(self.list) if ('label_1' in item and self.scene in item)]
+                
                 if self.is_normal:
-                    # breakpoint()
                     self.list = [self.list[i] for i in index_n]
                     print('normal list for DA:', len(self.list))
                     # print(self.list)
@@ -73,12 +78,26 @@ class Dataset(data.Dataset):
                     self.list = [self.list[i] for i in index_a]
                     print('abnormal list for DA:', len(self.list))
                     # print(self.list)
+        
+        else:  # test mode
+            if self.dataset == 'drone_anomaly': 
+                if self.scene == 'all':
+                    index = [i for i, item in enumerate(self.list)]
+                else:
+                    index = [i for i, item in enumerate(self.list) if self.scene in item]
+                self.list = [self.list[i] for i in index]
+                print('test list for DA:', len(self.list))
+                # print(self.list)
+
 
     def __getitem__(self, index):
 
         label = self.get_label()  # get video level label 0/1
-        features = np.load(self.list[index].strip('\n'), allow_pickle=True) # each video
-        features = np.array(features, dtype=np.float32)
+        vid_name = self.list[index].strip('\n')
+        features = np.load(vid_name, allow_pickle=True)  # each video
+        features = np.array(features, dtype=np.float32)  # (37, 10, 2048), (18, 10, 2048)...
+        # print(f'vid_name: {vid_name}. feature shape = {features.shape}')
+        # breakpoint()
 
         if self.tranform is not None:
             features = self.tranform(features)
@@ -86,13 +105,15 @@ class Dataset(data.Dataset):
             return features
         else:
             # process 10-cropped snippet feature
-            features = features.transpose(1, 0, 2)  # [10, B, T, F]
+            features = features.transpose(1, 0, 2)  # [10, 18, 2048]
             divided_features = []
+            # breakpoint()
             for feature in features:
+                # feature.shape = (18, 2048)
                 feature = process_feat(feature, 32)   # divide a video into 32 segments (T=32)
                 divided_features.append(feature)
-            divided_features = np.array(divided_features, dtype=np.float32)
-
+            divided_features = np.array(divided_features, dtype=np.float32)  # (10, 32, 2048)
+            # breakpoint()
             return divided_features, label
 
     def get_label(self):
