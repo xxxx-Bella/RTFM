@@ -47,20 +47,33 @@ After the setup, simply run the following commands:
 
 ```shell
 cd /home/featurize/work/yuxin/WVAD/RTFM && conda create -n "rtfm" python=3.9 && conda activate rtfm && pip install torch matplotlib scikit-learn tqdm wandb seaborn
+
 cd /home/featurize/work/yuxin/WVAD/RTFM && conda activate rtfm
 # conda info --envs
 
-# python -m visdom.server
 python main_0.py --run-name rtfm --max-epoch 5000 --batch-size 4 --scene all
 
+python main.py --run-name x-wo-aggregator --max-epoch 15000 --batch-size 4 --scene all
+python main.py --run-name x-wo-dual --max-epoch 15000 --batch-size 4 --scene all
+
+# loss terms
+python main.py --run-name x-l_cls --max-epoch 5000 --batch-size 4 --scene all  --lambda2 0
+python main.py --run-name x-l_mean --max-epoch 5000 --batch-size 4 --scene all --lambda1 0 --beta 0
+python main.py --run-name x-l_var --max-epoch 5000 --batch-size 4 --scene all --lambda1 0 --alpha 0
+python main.py --run-name x-l_mean_var --max-epoch 5000 --batch-size 4 --scene all --lambda1 0
+python main.py --run-name x-l_cls_mean --max-epoch 5000 --batch-size 4 --scene all --beta 0
+python main.py --run-name x-l_cls_var --max-epoch 5000 --batch-size 4 --scene all  --alpha 0
+python main.py --run-name x-l_no_ss --max-epoch 5000 --batch-size 4 --scene all  --lambda3 0 --lambda4 0
+
 python main.py --run-name x-scene-all-2 --max-epoch 15000 --batch-size 4 --scene all
-python main.py --run-name x-scene-bike --max-epoch 7000 --batch-size 4 --scene Bike_Roundabout
-python main.py --run-name x-scene-cross-2 --max-epoch 5000 --batch-size 1 --scene Crossroads
-python main.py --run-name x-scene-farm-2 --max-epoch 3000 --batch-size 1 --scene Farmland_Inspection
-python main.py --run-name x-scene-highway-2 --max-epoch 3000 --batch-size 1 --scene Highway
-python main.py --run-name x-scene-railway-2 --max-epoch 3000 --batch-size 1 --scene Railway_Inspection
-python main.py --run-name x-scene-solar --max-epoch 3000 --batch-size 1 --scene Solar_Panel_Inspection
-python main.py --run-name x-scene-vehicle-2 --max-epoch 3000 --batch-size 1 --scene Vehicle_Roundabout
+
+python main.py --run-name x-scene-bike-4 --max-epoch 7000 --batch-size 4 --scene Bike_Roundabout
+python main.py --run-name x-scene-cross-3 --max-epoch 5000 --batch-size 1 --scene Crossroads
+python main.py --run-name x-scene-farm-3 --max-epoch 3000 --batch-size 1 --scene Farmland_Inspection
+python main.py --run-name x-scene-highway-3 --max-epoch 3000 --batch-size 1 --scene Highway
+python main.py --run-name x-scene-railway-3 --max-epoch 2000 --batch-size 1 --scene Railway_Inspection
+python main.py --run-name x-scene-solar-3 --max-epoch 2000 --batch-size 1 --scene Solar_Panel_Inspection
+python main.py --run-name x-scene-vehicle-3 --max-epoch 3000 --batch-size 1 --scene Vehicle_Roundabout
 
 # ['all', 'Bike_Roundabout', 'Crossroads', 'Farmland_Inspection', 'Highway', 'Railway_Inspection', 'Solar_Panel_Inspection', 'Vehicle_Roundabout']
 
@@ -72,6 +85,11 @@ python main.py --run-name x-scene-vehicle-2 --max-epoch 3000 --batch-size 1 --sc
     # sudo chmod 777 /home/featurize/work/MyPaper/
     git commit -m ""
     git push origin main
+
+    git reset --soft HEAD^  # cancel last commit
+    git reset --soft HEAD~2  # cancel last 2 commits
+    git reset  # cancel add
+    
 
 ## Next
 * python list/make_gt_da.py (done)
@@ -85,3 +103,23 @@ python main.py --run-name x-scene-vehicle-2 --max-epoch 3000 --batch-size 1 --sc
 * npy in abnormal -->(copy) output/drone_anomaly_new  (done)
 
 ---
+
+# rm 
+    cd ./log
+    find . -type d -name "*-2" -exec rm {}/ckpt-best.pt \;
+    find . -type d -name "*-2" -exec rm {}/*.pickle \;
+
+    find . -type d -name "*-1" -exec find {} -type f -name "*.pickle" \; > files_to_delete.txt && cat files_to_delete.txt | xargs rm
+    
+    # current path, file size, memory
+    du -sh *   
+    du -ah --max-depth=1  # including hidden files
+
+    # Find all *.pickle files
+    find . -type f -name "threshold*" > files_to_delete.txt   
+
+    # Find all *.pickle files in dirs except "all-data"
+    find . -type d -name "all-data" -prune -o -type f -name "*.pickle" -print > files_to_delete.txt  
+
+    # Then remove
+    cat files_to_delete.txt | xargs rm

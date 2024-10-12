@@ -302,7 +302,7 @@ class Model(nn.Module):
         bs, ncrops, t, f = out.size()  # torch.Size([8, 10, 32, 2048])
         # breakpoint()
         out = out.view(-1, t, f)  # (bs*n_crops, n_segments, feature_dim) torch.Size([80, 32, 2048])
-        out = self.FeatureAggregator(out)  # 聚合特征，输出大小保持不变 torch.Size([80, 32, 2048])
+        # out = self.FeatureAggregator(out)  # 聚合特征，输出大小保持不变 torch.Size([80, 32, 2048])
         out = self.drop_out(out)
 
         features = out  # (bs*n_crops, n_segments, feature_dim)  torch.Size([80, 32, 2048])

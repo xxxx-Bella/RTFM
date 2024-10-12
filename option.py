@@ -31,5 +31,18 @@ parser.add_argument('--scene', type=str, default='all', choices = ['all', 'Bike_
 parser.add_argument('--smooth', type=bool, default=True, help = 'for visualization')
 parser.add_argument('--window_size', type=int, default=5, help = 'for visualization')
 
+# loss terms
+parser.add_argument('--lambda1', type=int, default=1, help = 'weight of loss_cls')
+parser.add_argument('--lambda2', type=int, default=0.5, help = 'weight of loss_dd')
+parser.add_argument('--lambda3', type=int, default=0.1, help = 'weight of loss_smooth')
+parser.add_argument('--lambda4', type=int, default=0.1, help = 'weight of loss_sparse')
+parser.add_argument('--alpha', type=int, default=1, help = 'weight of loss_mean')
+parser.add_argument('--beta', type=int, default=1, help = 'weight of loss_var')
+parser.add_argument('--margin', type=int, default=3, help = 'margin of loss_mean')
+
+
+
+
+
 
 

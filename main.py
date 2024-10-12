@@ -114,18 +114,14 @@ if __name__ == '__main__':
         # breakpoint()
 
         # 每 5 个 epoch 进行一次测试，并保存表现最好的模型
-        if epoch % 5 == 0 and epoch > 99:
+        if epoch % 10 == 0 and epoch > 99:
             print('Testing ...')
-            # print('loss:', loss.item())
-            # print('auc = test(test_loader, model,..)')
-            auc, ap, f1_info, pred = test(test_loader, model, args, wandb, device, log_dir)
+            auc, ap, f1_info, pred = test(test_loader, model, args, wandb, device, log_dir, epoch)
 
             test_info["epoch"].append(epoch)
             test_info["test_AUC"].append(auc)
             test_info["test_AP"].append(ap)
             test_info["test_F1"].append(f1_info)
-
-            # wandb.log({"epoch": epoch, "test_AUC": auc})
 
             if test_info["test_AUC"][-1] > best_AUC:
                 best_AUC = test_info["test_AUC"][-1]
@@ -133,8 +129,7 @@ if __name__ == '__main__':
                 save_best_record(test_info, log_path, 'auc')
                 wandb.log({"epoch": test_info["epoch"], 
                             "best_AUC": test_info["test_AUC"] })
-                visulization(epoch, pred, log_dir, args.scene, smooth=args.smooth, window_size=args.window_size)
-                # breakpoint()
+                # visulization(epoch, pred, log_dir, args.scene, smooth=args.smooth, window_size=args.window_size)
             
             if test_info["test_AP"][-1] > best_AP:
                 best_AP = test_info["test_AP"][-1]
@@ -142,12 +137,9 @@ if __name__ == '__main__':
                 wandb.log({"epoch": test_info["epoch"], 
                             "best_AP": test_info["test_AP"] })
             
-            # breakpoint()
             if test_info["test_F1"][-1]['f1'] > best_F1:
                 best_F1 = test_info["test_F1"][-1]['f1']
                 save_best_record(test_info, log_path, 'f1')
-                # wandb.log({"epoch": test_info["epoch"], 
-                #             "best_F1": test_info["test_F1"]['f1'] })
 
         if epoch == 1:
             start_time = datetime.now()
@@ -157,4 +149,4 @@ if __name__ == '__main__':
             end_time = datetime.now()
             save_best_record(end_time, log_path, 'time')
 
-    torch.save(model.state_dict(), './ckpt/' + f'{args.run_name}-final.pkl')
+    # torch.save(model.state_dict(), './ckpt/' + f'{args.run_name}-final.pkl')

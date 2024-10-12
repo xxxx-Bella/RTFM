@@ -7,7 +7,7 @@ from utils import visulization
 
 
 # wandb
-def test(dataloader, model, args, wandb, device, log_dir):
+def test(dataloader, model, args, wandb, device, log_dir, epoch):
     with torch.no_grad():  # 评估模式，不进行反向传播
         model.eval()
         # 处理输入数据，得到预测的 logits
@@ -43,11 +43,11 @@ def test(dataloader, model, args, wandb, device, log_dir):
 
         # 将 pred 中的每个值重复 16 次
         pred = list(pred.cpu().detach().numpy())  # len=2322, 99
-        pred_tmp = np.repeat(np.array(pred), 1)
+        # pred_tmp = np.repeat(np.array(pred), 1)
         # breakpoint()
         pred = np.repeat(np.array(pred), 16)  # len=37056, vehicle:(1584,), railway:(1360,)
-        # visulization(pred, log_dir, args.scene)
-        print(f'Scene: {args.scene}, Pred: {len(pred_tmp)}')
+        # visulization(epoch, pred, log_dir, args.scene, args.smooth, args.window_size)
+        # print(f'Scene: {args.scene}, Pred: {len(pred_tmp)}')
 
         if len(gt) != len(pred):
             print(f"Error: gt and pred have different lengths: {len(gt)} vs {len(pred)}")
@@ -55,9 +55,9 @@ def test(dataloader, model, args, wandb, device, log_dir):
         else:
             fpr, tpr, th1 = roc_curve(list(gt), pred)
 
-        np.save(f'{log_dir}/fpr.npy', fpr)
-        np.save(f'{log_dir}/tpr.npy', tpr)
-        np.save(f'{log_dir}/threshold1.npy', th1)
+        # np.save(f'{log_dir}/fpr.npy', fpr)
+        # np.save(f'{log_dir}/tpr.npy', tpr)
+        # np.save(f'{log_dir}/threshold1.npy', th1)
 
         # AUC, AP, Precision, Recall, F1, OA
         rec_auc = auc(fpr, tpr)
@@ -83,9 +83,9 @@ def test(dataloader, model, args, wandb, device, log_dir):
         print(f1_info)
         # breakpoint()
         
-        np.save(f'{log_dir}/precision.npy', precision)  # tp / (tp + fp)
-        np.save(f'{log_dir}/recall.npy', recall)  # tp / (tp + fn)
-        np.save(f'{log_dir}/threshold2.npy', th2)  # tp / (tp + fn)
+        # np.save(f'{log_dir}/precision.npy', precision)  # tp / (tp + fp)
+        # np.save(f'{log_dir}/recall.npy', recall)  # tp / (tp + fn)
+        # np.save(f'{log_dir}/threshold2.npy', th2)  # tp / (tp + fn)
 
         wandb.log({
             # "pr_auc": pr_auc,

@@ -184,6 +184,8 @@ def smooth_curve(pred, window_size=5):
     window = np.ones(window_size) / window_size
     # 使用卷积计算平滑后的数据
     smooth_pred = np.convolve(pred, window, mode='same')
+
+
     return smooth_pred
 
 
@@ -201,7 +203,7 @@ def visulization(epoch, pred, log_dir, scene, smooth=False, window_size=5):
     plt.xlabel('Frame Index', fontsize=14)
     plt.ylabel('Prediction Score', fontsize=14)
     plt.ylim(0, 1)
-    plt.grid(True)
+    # plt.grid(True)
     # plt.legend()
     output_path = os.path.join(log_dir, f'epoch{epoch}-{scene}-score.png')
     plt.savefig(output_path)

@@ -165,14 +165,15 @@ def train(nloader, aloader, model, batch_size, optimizer, scheduler, wandb, devi
         loss_sparse = sparsity(abn_y_pred, batch_size, 8e-3)
         loss_smooth = smooth(abn_y_pred, 8e-4)
 
-        # alpha = 0.0001  # l_s = around 15000
-        alpha = 1   # loss_mean
-        beta = 1    # loss_var
-        margin = 3  # loss_mean
-        # lambda1, lambda2 = 1, 0.5  # loss_cls, loss_dd (all scenes except bike)
-        lambda1, lambda2 = 1, 1  # loss_cls, loss_dd (bike)
-        lambda3, lambda4 = 0.1, 0.1  # loss_smooth, loss_sparse
-        my_loss_fn = My_loss(alpha, beta, lambda1, lambda2, margin)
+        # alpha = 1   # loss_mean
+        # beta = 1    # loss_var
+        # margin = 3  # loss_mean
+        # # lambda1, lambda2 = 1, 0.5  # loss_cls, loss_dd (all scenes except bike)
+        # lambda1, lambda2 = 1, 1  # loss_cls, loss_dd (bike)
+        # lambda3, lambda4 = 0.1, 0.1  # loss_smooth, loss_sparse
+
+
+        my_loss_fn = My_loss(args.alpha, args.beta, args.lambda1, args.lambda2, args.margin)
         loss_my = my_loss_fn(y_pred_normal, y_pred_abnormal, nlabel, alabel, feat_select_normal, feat_select_abn)
         # loss_cls, loss_s = my_loss_fn(y_pred_normal, y_pred_abnormal, nlabel, alabel, feat_select_normal, feat_select_abn)
 
@@ -186,7 +187,7 @@ def train(nloader, aloader, model, batch_size, optimizer, scheduler, wandb, devi
 
         cost_main = loss_my     # original: loss_cls + alpha * loss_s
         # cost_main = loss_cls + alpha * loss_contrastive
-        cost = cost_main + lambda3*loss_smooth + lambda4*loss_sparse
+        cost = cost_main + args.lambda3*loss_smooth + args.lambda4*loss_sparse
         # print(f'loss_main = {loss_my}')
         # print(f'loss_smooth = {loss_smooth}, loss_sparse = {loss_sparse}')
         # print(f'cost = {cost}')
