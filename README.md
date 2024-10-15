@@ -66,6 +66,7 @@ python main.py --run-name x-l_cls_var --max-epoch 5000 --batch-size 4 --scene al
 python main.py --run-name x-l_no_ss --max-epoch 5000 --batch-size 4 --scene all  --lambda3 0 --lambda4 0
 
 python main.py --run-name x-scene-all-2 --max-epoch 15000 --batch-size 4 --scene all
+python main.py --run-name x-transf --max-epoch 5000 --batch-size 4 --scene all
 
 python main.py --run-name x-scene-bike-4 --max-epoch 7000 --batch-size 4 --scene Bike_Roundabout
 python main.py --run-name x-scene-cross-3 --max-epoch 5000 --batch-size 1 --scene Crossroads

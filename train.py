@@ -94,30 +94,24 @@ class My_loss(torch.nn.Module):
         mean_abn = torch.mean(feat_a, dim=1)  # torch.Size([40, 2048])
         mean_nor = torch.mean(feat_n, dim=1)  # torch.Size([40, 2048])
 
-        # epsilon = 1e-5  # 防止除零
-        # relative_variance_diff = torch.abs((variance_abn - variance_nor) / (variance_nor + epsilon))  # torch.Size([40, 2048])
-        # variance_loss_2 = torch.mean(relative_variance_diff)  # 求平均
-
         variance_diff = variance_abn - variance_nor  # 异常方差 - 正常方差
-        clipped_variance_diff = torch.clamp(variance_diff, min=0)  # 只保留异常方差大于正常方差的部分
-        variance_loss = torch.mean(clipped_variance_diff)
+        variance_loss = torch.mean(torch.clamp(variance_diff, min=0)) # 只保留异常方差大于正常方差的部分
+        variance_loss_log = torch.mean(torch.log(1 + torch.clamp(variance_diff, min=0)))
 
-        # variance_diff = torch.abs(variance_abn - variance_nor)  # torch.Size([40, 2048]) 方差差异通常为非负值，且只关心差异大小。用 torch.abs 保证所有差异为正，并能逐特征地衡量每个维度的差异
-        # variance_loss = torch.mean(variance_diff)  # tensor float.
+        m2 = 5
+        variance_diff_m2 = torch.norm(variance_abn - variance_nor, p=2, dim=1)  # torch.Size([40, 2048])
+        variance_loss_m2 = torch.mean(torch.clamp(m2 - variance_diff_m2, min=0))
 
-        # mean_diff = torch.mean(torch.abs(mean_abn - mean_nor))  
-        # mean_loss = 1 - mean_diff  # Maximize mean difference 
         # m = 3
-        mean_diff = torch.norm(mean_abn - mean_nor, p=2, dim=1)  # l2 norm, dim 1, torch.Size([40]) 均值差异涉及所有特征维度的整体差异，用 L2 范数（torch.norm）可以更好地衡量总体差异。这样能得到每个样本的整体均值差异，而不仅是单个特征维度的差异
-        # mean_loss = torch.mean(mean_diff)  # 最大化 正常和异常视频均值的 差异
+        mean_diff = torch.norm(mean_abn - mean_nor, p=2, dim=1)  # l2 norm, dim 1, torch.Size([40]) 
         mean_loss = torch.mean(torch.clamp(self.margin - mean_diff, min=0))
+
         # print(f'variance_abn = {variance_abn}, variance_nor = {variance_nor}')
         # print(f'mean_abn = {mean_abn}, mean_nor = {mean_nor}')
         # print(f'mean_diff = {mean_diff}')
-        # print(f'mean_loss = {mean_loss}, variance_loss = {variance_loss}') 
-        # breakpoint()
+        # print(f'mean_loss = {mean_loss}, variance_loss = {variance_loss}, variance_loss_log = {variance_loss_log}') 
 
-        loss_dual = self.alpha * mean_loss + self.beta * variance_loss
+        loss_dual = self.alpha * mean_loss + self.beta * variance_loss_log
         # loss_dual = 0.5 * mean_loss + 0.5 * variance_loss
 
         # new-total-loss

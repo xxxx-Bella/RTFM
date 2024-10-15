@@ -140,6 +140,58 @@ class Bottleneck(nn.Module):
         return out
 
 
+class TransformerBlock(nn.Module):
+    '''基于 Transformer 的自注意力机制，用于捕获时间序列中的长距离依赖'''
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
+        super(TransformerBlock, self).__init__()
+        self.attention = nn.MultiheadAttention(embed_dim=d_model, num_heads=nhead, dropout=dropout)
+        self.feed_forward = nn.Sequential(
+            nn.Linear(d_model, dim_feedforward),
+            nn.ReLU(),
+            nn.Linear(dim_feedforward, d_model)
+        )
+        self.layernorm1 = nn.LayerNorm(d_model)
+        self.layernorm2 = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        # x: (T, bs, D/4) torch.Size([32, 80, 512])
+        breakpoint()
+        attn_output, _ = self.attention(x, x, x)  # 自注意力机制 attn_output: torch.Size([32, 80, 512])
+        x = self.layernorm1(x + self.dropout(attn_output))  # 残差连接 torch.Size([32, 80, 512])
+        ff_output = self.feed_forward(x)  # torch.Size([32, 80, 512])
+        x = self.layernorm2(x + self.dropout(ff_output))  # 残差连接 torch.Size([32, 80, 512])
+        return x
+
+
+class TransformerFeatureAggregator(nn.Module):
+    def __init__(self, len_feature, nhead=8, num_layers=2):
+        super(TransformerFeatureAggregator, self).__init__()
+        self.len_feature = len_feature  # 输入特征的长度
+        self.conv_1x1 = nn.Conv1d(in_channels=len_feature, out_channels=512, kernel_size=1)
+
+        # 使用多个 Transformer Block 捕获时序特征
+        self.transformer_blocks = nn.ModuleList([
+            TransformerBlock(d_model=512, nhead=nhead) for _ in range(num_layers)
+        ])
+        self.conv_out = nn.Conv1d(in_channels=512, out_channels=len_feature, kernel_size=1)
+    
+    def forward(self, x):
+        # x.shape = torch.Size([80, 512, 32])  (bs, D/4, T)
+        out = x.permute(2, 0, 1)  # 变换维度为 (T, bs, D/4) torch.Size([32, 80, 512])
+        out = self.conv_1x1(out.permute(1, 2, 0))  # 先做 1x1 卷积压缩特征维度, torch.Size([80, 512, 32])
+        out = out.permute(2, 0, 1)  # 变换回 (T, bs, D/4), torch.Size([32, 80, 512]) 
+
+        for transformer in self.transformer_blocks:  # len(self.transformer_blocks) = 2
+            out = transformer(out) # torch.Size([32, 80, 512]), torch.Size([32, 80, 512])
+        breakpoint()
+        out = out.permute(1, 2, 0)  # 转换维度
+        out = self.conv_out(out)  # 通过1x1卷积恢复维度
+        # out = out.permute(0, 2, 1)  # torch.Size([80, 32, 512])
+        return out
+
+
+
 class FeatureAggregator(nn.Module):
     '''特征聚合模块，用于处理输入的特征. 包含多个卷积层和 Non-Local Block.
     目的是在 时间维度上 聚合特征 并捕捉时间依赖关系
@@ -208,6 +260,8 @@ class FeatureAggregator(nn.Module):
         self.bottleneck = Bottleneck(in_channels=2048, out_channels=2048)
 
         self.non_local = NONLocalBlock1D(512, sub_sample=False, bn_layer=True)
+
+        self.transformer_fa = TransformerFeatureAggregator(512, nhead=8, num_layers=2)
         
         '''new-a: 权重融合, 用可学习的权重对不同尺度的特征进行加权求和，增强模型的自适应性.
         当前多尺度卷积的结果通过 torch.cat 拼接在一起。可以进一步改进为 权重融合。
@@ -243,10 +297,13 @@ class FeatureAggregator(nn.Module):
 
             # 1x1卷积
             out = self.conv_5(out)  # 使用 1x1 卷积对特征进行进一步压缩 torch.Size([80, 512, 32])  (D/4, T)
-            # print(out.shape) 
-            # Non-Local操作
-            out = self.non_local(out)  # 引入 Non-Local Block 来捕获长距离依赖 torch.Size([80, 512, 32])
-            # print(out.shape) 
+            # print('after conv_5:', out.shape) 
+
+            # out = self.non_local(out)  # 引入 Non-Local Block 来捕获长距离依赖 torch.Size([80, 512, 32])
+
+            out = self.transformer_fa(out)  # torch.Size([80, 512, 32])
+            # print('after transformer_fa:', out.shape) 
+
             out = torch.cat((out_d, out), dim=1)  # only new-b: [80, 2560, 32]; new-a: torch.Size([80, 1024, 32])
             # print(out.shape) (D/2, T)
 
@@ -302,7 +359,7 @@ class Model(nn.Module):
         bs, ncrops, t, f = out.size()  # torch.Size([8, 10, 32, 2048])
         # breakpoint()
         out = out.view(-1, t, f)  # (bs*n_crops, n_segments, feature_dim) torch.Size([80, 32, 2048])
-        # out = self.FeatureAggregator(out)  # 聚合特征，输出大小保持不变 torch.Size([80, 32, 2048])
+        out = self.FeatureAggregator(out)  # 聚合特征，输出大小保持不变 torch.Size([80, 32, 2048])
         out = self.drop_out(out)
 
         features = out  # (bs*n_crops, n_segments, feature_dim)  torch.Size([80, 32, 2048])
