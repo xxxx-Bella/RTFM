@@ -157,7 +157,7 @@ class TransformerBlock(nn.Module):
     def forward(self, x):
         # x: (T, bs, D/4) torch.Size([32, 80, 512])
         breakpoint()
-        attn_output, _ = self.attention(x, x, x)  # 自注意力机制 attn_output: torch.Size([32, 80, 512])
+        attn_output, _ = self.attention(x, x, x)  # 自注意力机制 attn_output: (T, bs, D/4) torch.Size([32, 80, 512])
         x = self.layernorm1(x + self.dropout(attn_output))  # 残差连接 torch.Size([32, 80, 512])
         ff_output = self.feed_forward(x)  # torch.Size([32, 80, 512])
         x = self.layernorm2(x + self.dropout(ff_output))  # 残差连接 torch.Size([32, 80, 512])
@@ -177,17 +177,16 @@ class TransformerFeatureAggregator(nn.Module):
         self.conv_out = nn.Conv1d(in_channels=512, out_channels=len_feature, kernel_size=1)
     
     def forward(self, x):
-        # x.shape = torch.Size([80, 512, 32])  (bs, D/4, T)
+        # x.shape = torch.Size([80, 512, 32])  (bs, D/4, T)  ### X'
         out = x.permute(2, 0, 1)  # 变换维度为 (T, bs, D/4) torch.Size([32, 80, 512])
-        out = self.conv_1x1(out.permute(1, 2, 0))  # 先做 1x1 卷积压缩特征维度, torch.Size([80, 512, 32])
+        out = self.conv_1x1(out.permute(1, 2, 0))  # 先做 1x1 卷积压缩特征维度, (bs, D/4, T) torch.Size([80, 512, 32])
         out = out.permute(2, 0, 1)  # 变换回 (T, bs, D/4), torch.Size([32, 80, 512]) 
 
         for transformer in self.transformer_blocks:  # len(self.transformer_blocks) = 2
-            out = transformer(out) # torch.Size([32, 80, 512]), torch.Size([32, 80, 512])
+            out = transformer(out) # torch.Size([32, 80, 512]) (T, bs, D/4)
         breakpoint()
-        out = out.permute(1, 2, 0)  # 转换维度
-        out = self.conv_out(out)  # 通过1x1卷积恢复维度
-        # out = out.permute(0, 2, 1)  # torch.Size([80, 32, 512])
+        out = out.permute(1, 2, 0)  # 转换维度 torch.Size([80, 512, 32]) (bs, D/4, T)
+        out = self.conv_out(out)  # 通过1x1卷积恢复维度  torch.Size([80, 512, 32])
         return out
 
 
@@ -296,7 +295,7 @@ class FeatureAggregator(nn.Module):
             # breakpoint()
 
             # 1x1卷积
-            out = self.conv_5(out)  # 使用 1x1 卷积对特征进行进一步压缩 torch.Size([80, 512, 32])  (D/4, T)
+            out = self.conv_5(out)  # 使用 1x1 卷积对特征进行进一步压缩 torch.Size([80, 512, 32])  (bs, D/4, T)
             # print('after conv_5:', out.shape) 
 
             # out = self.non_local(out)  # 引入 Non-Local Block 来捕获长距离依赖 torch.Size([80, 512, 32])
