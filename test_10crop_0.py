@@ -6,7 +6,7 @@ import wandb
 from utils import visulization
 
 
-def test(dataloader, model, args, wandb, device, log_dir):
+def test(dataloader, model, args, wandb, device, log_dir, epoch):
     with torch.no_grad():
         model.eval()
         pred = torch.zeros(0, device=device)
@@ -26,13 +26,15 @@ def test(dataloader, model, args, wandb, device, log_dir):
             gt = np.load('list/gt-ucf.npy')
         elif args.dataset == 'drone_anomaly':
             if args.scene == 'all':
-                gt = np.load('list/gt-da.npy')
-            else:
-                gt = np.load(f'list/gt-da-{args.scene}.npy')
+                gt = np.load('/home/featurize/work/yuxin/WVAD/DALE/list/gt-da.npy')
+            else: 
+                gt = np.load(f'/home/featurize/work/yuxin/WVAD/DALE/list/gt-da-{args.scene}.npy')
         
 
         pred = list(pred.cpu().detach().numpy())
         pred = np.repeat(np.array(pred), 16)
+
+        # visulization(epoch, pred, log_dir, args.scene, args.smooth, args.window_size)
 
 
         if len(gt) != len(pred):

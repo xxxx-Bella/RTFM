@@ -15,10 +15,6 @@ import wandb
 from datetime import datetime
 
 
-# # 实时可视化训练过程, env 指定 Visdom 的环境名称
-# viz = Visualizer(env='shanghai tech 10 crop', use_incoming_socket=False)
-
-
 if __name__ == '__main__':
     args = option.parser.parse_args()
     config = Config(args)

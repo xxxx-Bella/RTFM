@@ -194,8 +194,9 @@ class Aggregate(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, n_features, batch_size):
+    def __init__(self, n_features, batch_size, args):
         super(Model, self).__init__()
+        self.args = args
         self.batch_size = batch_size
         self.num_segments = 32  # T snippets each video
         self.k_abn = self.num_segments // 10  # k = 3 = 32 // 10 (topk: top 10%)
